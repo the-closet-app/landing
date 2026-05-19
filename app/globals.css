@@ -118,8 +118,7 @@ body::before {
   align-items: center;
   justify-content: center;
   color: #fff;
-  width: 100%;
-  padding: 0.9rem 1.2rem;
+  padding: .9rem 1.8rem;
   border-radius: 100px;
   background: rgba(255,255,255,0.08);
   -webkit-backdrop-filter: blur(10px);
