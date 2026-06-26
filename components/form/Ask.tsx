@@ -293,7 +293,7 @@ export function Ask() {
 							}
 							key={activeOption.id}
 							rows={2}
-							className="min-h-16 w-full resize-none bg-transparent text-lg font-medium leading-relaxed tracking-[-.02em] text-[white]/75 outline-none placeholder:text-white/45 sm:text-[1.1rem] leading-[1.45]"
+							className="min-h-16 w-full resize-none bg-transparent text-lg font-medium tracking-[-.02em] text-[white]/75 outline-none placeholder:text-white/45 sm:text-[1.1rem] leading-[1.3]"
 						/>
 					</div>
 				</div>

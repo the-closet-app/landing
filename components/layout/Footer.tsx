@@ -12,11 +12,11 @@ export function Footer() {
 								CLAi
 							</span>
 						</div>
-						<p className="max-w-[560px] font-antique-legacy text-lg font-medium leading-[1.3] tracking-[-.02em] text-white/60 sm:text-[1.15rem]">
+						<p className="max-w-[560px] font-antique-legacy text-lg font-medium leading-[1.4] tracking-[-.02em] text-white/50 sm:text-[1.1rem]">
 							CLAi is your personal AI styling assistant, designed to help you make better decisions with what you wear. From answering everyday fashion questions to
-							guiding more intentional use of your wardrobe, CLAi provides thoughtful, context-aware support tailoredto you.
+							guiding more intentional use of your wardrobe, CLAi provides thoughtful, context-aware support tailored to you.
 						</p>
-						<p className="font-antique-legacy font-normal tracking-[-.02em] text-white/60 sm:text-[1.15rem]">
+						<p className="font-antique-legacy font-normal tracking-[-.02em] text-white/50 sm:text-[1.1rem]">
 							&copy; 2026 CLAi. All rights reserved.
 						</p>
 					</div>
@@ -32,7 +32,7 @@ export function Footer() {
 								id="footer-email"
 								type="email"
 								placeholder="Your email address"
-								className="min-w-0 flex-1 px-5 font-antique-legacy font-normal tracking-[-.03em] text-white outline-none placeholder:text-white/55 sm:text-[1.2rem]"
+								className="min-w-0 flex-1 px-5 font-antique-legacy font-normal tracking-[-.03em] text-white outline-none placeholder:text-white/55 sm:text-[1.1rem]"
 							/>
 							<button
 								type="submit"

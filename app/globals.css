@@ -79,6 +79,10 @@ body {
 	animation: micColorPulse 1.15s ease-in-out infinite;
 }
 
+textarea {
+	field-sizing: content;
+}
+
 footer {
 	background-image: url('/clai_footer_back.webp');
 	background-size: cover;
