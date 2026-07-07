@@ -1,6 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import type { ChangeEvent, FormEvent } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
+import ReactMarkdown from 'react-markdown';
 
 import { ClaiMark } from '@/components/icons/ClaiMark';
 import { Upload } from '@/components/icons/Upload';
@@ -33,6 +36,24 @@ const contextOptions = [
 
 type ContextOption = (typeof contextOptions)[number]['id'];
 
+type SelectedImage = {
+	data: string;
+	mimeType: string;
+	name: string;
+	previewUrl: string;
+};
+
+type ChatMessage = {
+	id: string;
+	role: 'user' | 'assistant';
+	content: string;
+	generatedImageUrl?: string;
+	imageData?: string;
+	imageMimeType?: string;
+	imageName?: string;
+	imagePreviewUrl?: string;
+};
+
 type BrowserSpeechRecognition = {
 	continuous: boolean;
 	interimResults: boolean;
@@ -64,6 +85,102 @@ declare global {
 	}
 }
 
+const maxImageSize = 5 * 1024 * 1024;
+const optimizedImageMaxSize = 1280;
+const optimizedImageQuality = 0.82;
+const maxChatHistoryMessages = 8;
+const supportedImageTypes = ['image/jpeg', 'image/png', 'image/webp'];
+
+function subscribeToClient() {
+	return () => {};
+}
+
+function getClientSnapshot() {
+	return true;
+}
+
+function getServerSnapshot() {
+	return false;
+}
+
+function loadImage(dataUrl: string) {
+	return new Promise<HTMLImageElement>((resolve, reject) => {
+		const image = document.createElement('img');
+
+		image.onload = () => resolve(image);
+		image.onerror = () => reject(new Error('Unable to load image.'));
+		image.src = dataUrl;
+	});
+}
+
+async function optimizeImage(file: File): Promise<SelectedImage> {
+	const sourceDataUrl = await new Promise<string>((resolve, reject) => {
+		const reader = new FileReader();
+
+		reader.onload = () => {
+			if (typeof reader.result !== 'string') {
+				reject(new Error('Unable to read image.'));
+				return;
+			}
+
+			resolve(reader.result);
+		};
+		reader.onerror = () => reject(new Error('Unable to read image.'));
+		reader.readAsDataURL(file);
+	});
+	const image = await loadImage(sourceDataUrl);
+	const scale = Math.min(
+		1,
+		optimizedImageMaxSize / Math.max(image.width, image.height)
+	);
+	const width = Math.max(1, Math.round(image.width * scale));
+	const height = Math.max(1, Math.round(image.height * scale));
+	const canvas = document.createElement('canvas');
+	const context = canvas.getContext('2d');
+
+	if (!context) {
+		throw new Error('Unable to optimize image.');
+	}
+
+	canvas.width = width;
+	canvas.height = height;
+	context.drawImage(image, 0, 0, width, height);
+
+	const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+	const optimizedDataUrl = canvas.toDataURL(
+		mimeType,
+		mimeType === 'image/jpeg' ? optimizedImageQuality : undefined
+	);
+	const base64Data = optimizedDataUrl.split(',')[1];
+
+	if (!base64Data) {
+		throw new Error('Unable to optimize image.');
+	}
+
+	return {
+		data: base64Data,
+		mimeType,
+		name: file.name,
+		previewUrl: optimizedDataUrl,
+	};
+}
+
+function getChatHistory(messages: ChatMessage[]) {
+	return messages
+		.filter(
+			(message) =>
+				message.content &&
+				message.content !== 'CLAi is thinking...' &&
+				!message.generatedImageUrl
+		)
+		.slice(-maxChatHistoryMessages)
+		.map((message) => ({
+			content: message.content,
+			hasImage: Boolean(message.imagePreviewUrl),
+			role: message.role,
+		}));
+}
+
 export function Ask() {
 	const [activeContext, setActiveContext] =
 		useState<ContextOption>('consumer');
@@ -79,12 +196,27 @@ export function Ask() {
 	const [isPromptFocused, setIsPromptFocused] = useState(false);
 	const [isListening, setIsListening] = useState(false);
 	const [isSpeechSupported, setIsSpeechSupported] = useState(false);
+	const [error, setError] = useState('');
+	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [generatingLookForMessageId, setGeneratingLookForMessageId] =
+		useState<string | null>(null);
+	const [isChatOpen, setIsChatOpen] = useState(false);
+	const [messages, setMessages] = useState<ChatMessage[]>([]);
+	const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(
+		null
+	);
+	const imageInputRef = useRef<HTMLInputElement | null>(null);
 	const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
 	const transcriptBaseRef = useRef('');
 	const overlayPlaceholder =
 		isListening && !promptValue
 			? 'CLAi is listening...'
 			: animatedPlaceholder;
+	const isMounted = useSyncExternalStore(
+		subscribeToClient,
+		getClientSnapshot,
+		getServerSnapshot
+	);
 
 	useEffect(() => {
 		const recognitionConstructor =
@@ -198,6 +330,19 @@ export function Ask() {
 		promptValue,
 	]);
 
+	useEffect(() => {
+		if (!isChatOpen) {
+			return;
+		}
+
+		const originalOverflow = document.body.style.overflow;
+		document.body.style.overflow = 'hidden';
+
+		return () => {
+			document.body.style.overflow = originalOverflow;
+		};
+	}, [isChatOpen]);
+
 	function handleContextChange(context: ContextOption) {
 		recognitionRef.current?.stop();
 		setActiveContext(context);
@@ -207,6 +352,7 @@ export function Ask() {
 		setAnimatedPlaceholder('');
 		setPromptValue('');
 		setIsPromptFocused(false);
+		setError('');
 	}
 
 	function handlePromptBlur() {
@@ -236,35 +382,244 @@ export function Ask() {
 		recognitionRef.current.start();
 	}
 
-	return (
-		<div className="z-10 flex w-full flex-col items-center gap-6 mt-10">
-			<div
-				className="border-1 border-[#e5e5e5]/5 grid h-16 w-[min(90vw,280px)] grid-cols-2 rounded-full bg-white/10 p-[0.25rem] font-medium font-antique-legacy text-white/45 backdrop-blur-[10px] sm:h-[52px] sm:text-base"
-				aria-label="Ask CLAi context"
-			>
-				{contextOptions.map((option) => {
-					const isActive = activeContext === option.id;
+	function handleImageButtonClick() {
+		imageInputRef.current?.click();
+	}
 
-					return (
-						<button
-							key={option.id}
-							type="button"
-							onClick={() => handleContextChange(option.id)}
-							className={`rounded-full transition duration-200 text-[1.1rem] tracking-[-.04em] ${
-								isActive
-									? 'bg-[#E0E0E0] text-[#1C1C1C] shadow-[inset_0_2px_2px_0_#FFF,0_0_12px_0_rgba(0,0,0,0.10)]'
-									: 'text-[#787878] hover:text-white/75'
-							}`}
-							aria-pressed={isActive}
-						>
-							{option.label}
-						</button>
-					);
-				})}
-			</div>
+	function handleImageRemove() {
+		setSelectedImage(null);
+
+		if (imageInputRef.current) {
+			imageInputRef.current.value = '';
+		}
+	}
+
+	async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+		const file = event.target.files?.[0];
+
+		if (!file) {
+			return;
+		}
+
+		if (!supportedImageTypes.includes(file.type)) {
+			setError('Upload a JPG, PNG, or WebP image.');
+			event.target.value = '';
+			return;
+		}
+
+		if (file.size > maxImageSize) {
+			setError('Upload an image smaller than 5MB.');
+			event.target.value = '';
+			return;
+		}
+
+		try {
+			const image = await optimizeImage(file);
+			setSelectedImage(image);
+			setError('');
+		} catch {
+			setError('CLAi could not read that image.');
+			event.target.value = '';
+		}
+	}
+
+	function handleChatClose() {
+		recognitionRef.current?.stop();
+		setIsChatOpen(false);
+		setMessages([]);
+		setError('');
+		setPromptValue('');
+		handleImageRemove();
+	}
+
+	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+
+		const prompt = promptValue.trim();
+		const outgoingImage = selectedImage;
+
+		if (!prompt && !outgoingImage) {
+			setError('Ask CLAi a styling question or add an image first.');
+			return;
+		}
+
+		recognitionRef.current?.stop();
+		setIsSubmitting(true);
+		setError('');
+		setIsChatOpen(true);
+		const history = getChatHistory(messages);
+
+		const userMessage: ChatMessage = {
+			id: crypto.randomUUID(),
+			role: 'user',
+			content: prompt || 'Analyze this image.',
+			imageData: outgoingImage?.data,
+			imageMimeType: outgoingImage?.mimeType,
+			imageName: outgoingImage?.name,
+			imagePreviewUrl: outgoingImage?.previewUrl,
+		};
+		const assistantMessageId = crypto.randomUUID();
+
+		setMessages((currentMessages) => [
+			...currentMessages,
+			userMessage,
+			{
+				id: assistantMessageId,
+				role: 'assistant',
+				content: 'CLAi is thinking...',
+			},
+		]);
+		setPromptValue('');
+		setSelectedImage(null);
+
+		if (imageInputRef.current) {
+			imageInputRef.current.value = '';
+		}
+
+		try {
+			const response = await fetch('/api/ask', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					context: activeContext,
+					history,
+					image: outgoingImage
+						? {
+								data: outgoingImage.data,
+								mimeType: outgoingImage.mimeType,
+								name: outgoingImage.name,
+							}
+						: undefined,
+					prompt,
+				}),
+			});
+
+			const data = (await response.json()) as {
+				answer?: string;
+				error?: string;
+			};
+
+			if (!response.ok) {
+				throw new Error(
+					data.error ?? 'CLAi could not answer right now.'
+				);
+			}
+
+			setMessages((currentMessages) =>
+				currentMessages.map((message) =>
+					message.id === assistantMessageId
+						? {
+								...message,
+								content: data.answer ?? '',
+							}
+						: message
+				)
+			);
+		} catch (submitError) {
+			const message =
+				submitError instanceof Error
+					? submitError.message
+					: 'CLAi could not answer right now.';
+
+			setMessages((currentMessages) =>
+				currentMessages.map((chatMessage) =>
+					chatMessage.id === assistantMessageId
+						? {
+								...chatMessage,
+								content: message,
+							}
+						: chatMessage
+				)
+			);
+		} finally {
+			setIsSubmitting(false);
+		}
+	}
+
+	async function handleGenerateLook(messageId: string) {
+		const assistantIndex = messages.findIndex(
+			(message) =>
+				message.id === messageId && message.role === 'assistant'
+		);
+		const assistantMessage = messages[assistantIndex];
+		const userMessage = messages
+			.slice(0, assistantIndex)
+			.reverse()
+			.find((message) => message.role === 'user');
+
+		if (
+			!assistantMessage ||
+			assistantMessage.content === 'CLAi is thinking...'
+		) {
+			return;
+		}
+
+		setGeneratingLookForMessageId(messageId);
+		setError('');
+
+		try {
+			const response = await fetch('/api/generate-look', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					advice: assistantMessage.content,
+					context: activeContext,
+					image:
+						userMessage?.imageData && userMessage.imageMimeType
+							? {
+									data: userMessage.imageData,
+									mimeType: userMessage.imageMimeType,
+									name: userMessage.imageName,
+								}
+							: undefined,
+					prompt: userMessage?.content,
+				}),
+			});
+			const data = (await response.json()) as {
+				error?: string;
+				imageUrl?: string;
+			};
+
+			if (!response.ok || !data.imageUrl) {
+				throw new Error(
+					data.error ?? 'CLAi could not generate an image right now.'
+				);
+			}
+
+			setMessages((currentMessages) =>
+				currentMessages.map((message) =>
+					message.id === messageId
+						? {
+								...message,
+								generatedImageUrl: data.imageUrl,
+							}
+						: message
+				)
+			);
+		} catch (generateError) {
+			setError(
+				generateError instanceof Error
+					? generateError.message
+					: 'CLAi could not generate an image right now.'
+			);
+		} finally {
+			setGeneratingLookForMessageId(null);
+		}
+	}
+
+	function renderComposer(isOverlay: boolean) {
+		return (
 			<form
-				className="flex min-h-[200px] w-full flex-col justify-between gap-5 rounded-[32px] border-[0.5] border-[#e5e5e5]/5 bg-[#292929]/50 px-5 py-5 text-left shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] sm:min-h-[200px] sm:rounded-[34px] sm:px-6 sm:py-6"
-				onSubmit={(event) => event.preventDefault()}
+				className={
+					isOverlay
+						? 'mx-auto mt-auto flex w-[min(92vw,920px)] shrink-0 flex-col justify-between gap-5 rounded-[32px] border-[0.5] border-[#e5e5e5]/5 bg-[#292929]/50 px-5 py-5 text-left shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] sm:rounded-[34px]'
+						: 'flex w-full flex-col justify-between gap-5 rounded-[32px] border-[0.5] border-[#e5e5e5]/5 bg-[#292929]/50 px-5 py-5 text-left shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] sm:rounded-[34px] sm:px-6 sm:py-6'
+				}
+				onSubmit={handleSubmit}
 			>
 				<div className="flex min-w-0 items-start gap-5 px-2 py-1">
 					<ClaiMark className="mt-[0.2rem] h-6 w-[26px] shrink-0 text-[#787878]" />
@@ -292,12 +647,32 @@ export function Ask() {
 								setPromptValue(event.target.value)
 							}
 							key={activeOption.id}
-							rows={2}
-							className="min-h-16 w-full resize-none bg-transparent text-lg font-medium tracking-[-.02em] text-[white]/75 outline-none placeholder:text-white/45 sm:text-[1.1rem] leading-[1.3]"
+							rows={isOverlay ? 1 : 2}
+							className="w-full resize-none bg-transparent text-lg font-medium leading-[1.3] tracking-[-.02em] text-[white]/75 outline-none placeholder:text-white/45 sm:text-[1.1rem]"
 						/>
 					</div>
 				</div>
-				<div className="flex items-center justify-end gap-3">
+				<div className="flex items-center justify-between gap-3">
+					<div className="flex min-w-0 flex-1 items-center">
+						{selectedImage ? (
+							<div className="relative size-11 shrink-0">
+								<img
+									src={selectedImage.previewUrl}
+									alt=""
+									className="size-11 rounded-[10px] border border-white/15 object-cover"
+								/>
+								<button
+									type="button"
+									onClick={handleImageRemove}
+									className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-[#1C1C1C] text-xs leading-none text-white shadow-[0_2px_8px_rgba(0,0,0,0.25)] transition hover:bg-[#F47016]"
+									aria-label="Remove selected image"
+									title="Remove selected image"
+								>
+									×
+								</button>
+							</div>
+						) : null}
+					</div>
 					<button
 						type="button"
 						onClick={handleSpeechToggle}
@@ -325,19 +700,197 @@ export function Ask() {
 					</button>
 					<button
 						type="button"
+						onClick={handleImageButtonClick}
 						className="shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] grid size-12 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/10 focus:outline-none"
 						aria-label="Add an outfit image"
 					>
 						<Upload />
 					</button>
+					<input
+						ref={imageInputRef}
+						type="file"
+						accept="image/jpeg,image/png,image/webp"
+						className="hidden"
+						onChange={handleImageChange}
+					/>
 					<button
 						type="submit"
-						className="h-12 rounded-full bg-[#F47016] tracking-[-.02em] px-6 text-base font-medium text-white transition hover:bg-[#F47016] focus:outline-none sm:px-7 sm:text-lg"
+						data-testid="ask-clai-submit"
+						disabled={isSubmitting}
+						className="h-12 rounded-full bg-[#F47016] px-6 text-base font-medium tracking-[-.02em] text-white transition hover:bg-[#F47016] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:px-7 sm:text-lg"
 					>
-						Ask CLAi
+						{isSubmitting ? 'Asking...' : 'Ask CLAi'}
 					</button>
 				</div>
 			</form>
+		);
+	}
+
+	const chatOverlay =
+		isChatOpen && isMounted
+			? createPortal(
+					<div
+						data-testid="ask-chat-overlay"
+						className="fixed left-0 top-0 z-[2147483647] flex h-dvh w-dvw flex-col overflow-hidden bg-[#1C1C1C] px-4 py-5 text-left sm:px-8 sm:py-4"
+					>
+						<div className="absolute right-5 top-5 z-10 sm:right-8 sm:top-7">
+							<button
+								type="button"
+								onClick={(event) => {
+									event.stopPropagation();
+									handleChatClose();
+								}}
+								className="grid size-8 place-items-center rounded-full bg-white/10 pb-1 text-[1.2em] leading-none text-white/70 transition hover:bg-white/15 hover:text-white"
+								aria-label="Close Ask CLAi chat"
+								title="Close Ask CLAi chat"
+							>
+								×
+							</button>
+						</div>
+						<div className="scrollbar-none mx-auto flex w-[min(92vw,920px)] flex-1 flex-col space-y-6 overflow-y-auto pb-8 pt-20 sm:pt-24">
+							{messages.map((message) => (
+								<div
+									key={message.id}
+									className={`flex ${
+										message.role === 'user'
+											? 'justify-end'
+											: 'justify-start'
+									}`}
+								>
+									<article
+										className={`font-antique-legacy text-[1.1rem] font-medium ${
+											message.role === 'user'
+												? 'w-auto rounded-[24px] bg-white/10 px-3 py-3 leading-[1.3] text-white/40 backdrop-blur-[10px] sm:max-w-[50%]'
+												: 'w-full text-[white]/70 leading-[1.3]'
+										}`}
+									>
+										{message.imagePreviewUrl ? (
+											<img
+												src={message.imagePreviewUrl}
+												alt={message.imageName ?? ''}
+												className="mb-3 h-14 w-14 rounded-[12px] object-cover"
+											/>
+										) : null}
+										<ReactMarkdown
+											components={{
+												p: ({ children }) => (
+													<p className="mb-2 last:mb-0">
+														{children}
+													</p>
+												),
+												strong: ({ children }) => (
+													<strong className="font-medium">
+														{children}
+													</strong>
+												),
+												h1: ({ children }) => (
+													<p className="mb-2 mt-4 text-lg font-medium text-[white]/70 first:mt-0">
+														{children}
+													</p>
+												),
+												h2: ({ children }) => (
+													<p className="mb-2 mt-4 text-base font-medium text-[white]/70 first:mt-0">
+														{children}
+													</p>
+												),
+												h3: ({ children }) => (
+													<p className="mb-2 mt-4 font-medium text-[white]/70 first:mt-0">
+														{children}
+													</p>
+												),
+												ul: ({ children }) => (
+													<ul className="mb-3 ml-5 list-disc space-y-1 marker:text-current last:mb-0">
+														{children}
+													</ul>
+												),
+												ol: ({ children }) => (
+													<ol className="mb-3 ml-5 list-decimal space-y-1 marker:text-current last:mb-0">
+														{children}
+													</ol>
+												),
+												li: ({ children }) => (
+													<li className="pl-1">
+														{children}
+													</li>
+												),
+												hr: () => null,
+											}}
+										>
+											{message.content}
+										</ReactMarkdown>
+										{message.generatedImageUrl ? (
+											<img
+												src={message.generatedImageUrl}
+												alt="Generated modest fashion look inspiration"
+												className="mt-5 aspect-square w-full max-w-[360px] rounded-[24px] object-cover"
+											/>
+										) : null}
+										{message.role === 'assistant' &&
+										message.content !==
+											'CLAi is thinking...' &&
+										!message.generatedImageUrl ? (
+											<button
+												type="button"
+												onClick={() =>
+													handleGenerateLook(
+														message.id
+													)
+												}
+												disabled={
+													generatingLookForMessageId !==
+													null
+												}
+												className="mt-5 rounded-full py-2 text-[1em] font-medium text-white/20 hover:text-white/40 transition disabled:cursor-not-allowed disabled:opacity-40"
+											>
+												{generatingLookForMessageId ===
+												message.id
+													? 'Generating look...'
+													: 'Generate look inspiration'}
+											</button>
+										) : null}
+									</article>
+								</div>
+							))}
+						</div>
+						{renderComposer(true)}
+					</div>,
+					document.body
+				)
+			: null;
+
+	return (
+		<div className="z-10 flex w-full flex-col items-center gap-6 mt-10">
+			<div
+				className="border-1 border-[#e5e5e5]/5 grid h-16 w-[min(90vw,280px)] grid-cols-2 rounded-full bg-white/10 p-[0.25rem] font-medium font-antique-legacy text-white/45 backdrop-blur-[10px] sm:h-[52px] sm:text-base"
+				aria-label="Ask CLAi context"
+			>
+				{contextOptions.map((option) => {
+					const isActive = activeContext === option.id;
+
+					return (
+						<button
+							key={option.id}
+							type="button"
+							onClick={() => handleContextChange(option.id)}
+							className={`rounded-full transition duration-200 text-[1.1rem] tracking-[-.04em] ${
+								isActive
+									? 'bg-[#E0E0E0] text-[#1C1C1C] shadow-[inset_0_2px_2px_0_#FFF,0_0_12px_0_rgba(0,0,0,0.10)]'
+									: 'text-[#787878] hover:text-white/75'
+							}`}
+							aria-pressed={isActive}
+						>
+							{option.label}
+						</button>
+					);
+				})}
+			</div>
+			{isChatOpen ? null : renderComposer(false)}
+			{chatOverlay}
+			{error ? (
+				<p className="w-full rounded-2xl border border-[#F47016]/30 bg-[#F47016]/10 px-5 py-4 text-left text-sm font-medium text-white/80">
+					{error}
+				</p>
+			) : null}
 		</div>
 	);
 }

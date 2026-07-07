@@ -83,6 +83,14 @@ textarea {
 	field-sizing: content;
 }
 
+.scrollbar-none {
+	scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+	display: none;
+}
+
 footer {
 	background-image: url('/clai_footer_back.webp');
 	background-size: cover;
