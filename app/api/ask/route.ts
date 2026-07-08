@@ -1,5 +1,14 @@
 import { NextResponse } from 'next/server';
 
+import {
+	getDailyMessageUsage,
+	incrementDailyMessageUsage,
+} from '@/lib/daily-usage-server';
+import {
+	getBearerToken,
+	requireAuthenticatedUser,
+} from '@/lib/firebase-auth-server';
+
 type AskRequestBody = {
 	prompt?: string;
 	context?: 'consumer' | 'stylist';
@@ -132,6 +141,40 @@ function getHistoryContents(history: AskRequestBody['history']) {
 }
 
 export async function POST(request: Request) {
+	const idToken = getBearerToken(request);
+	const user = await requireAuthenticatedUser(request);
+
+	if (!idToken || !user?.localId) {
+		return NextResponse.json(
+			{ error: 'Please log in to use Ask CLAi.' },
+			{ status: 401 }
+		);
+	}
+
+	let usage: Awaited<ReturnType<typeof getDailyMessageUsage>>;
+
+	try {
+		usage = await getDailyMessageUsage({
+			idToken,
+			uid: user.localId,
+		});
+	} catch {
+		return NextResponse.json(
+			{ error: 'Unable to check your daily message usage.' },
+			{ status: 502 }
+		);
+	}
+
+	if (usage.used >= usage.limit) {
+		return NextResponse.json(
+			{
+				error: `You have used all ${usage.limit} CLAi messages for today.`,
+				usage,
+			},
+			{ status: 429 }
+		);
+	}
+
 	const apiKey = process.env.GEMINI_API_KEY;
 
 	if (!apiKey) {
@@ -251,7 +294,12 @@ export async function POST(request: Request) {
 			);
 		}
 
-		return NextResponse.json({ answer });
+		const nextUsage = await incrementDailyMessageUsage({
+			idToken,
+			uid: user.localId,
+		});
+
+		return NextResponse.json({ answer, usage: nextUsage });
 	} catch {
 		return NextResponse.json(
 			{ error: 'Unable to reach Gemini. Please try again.' },

@@ -1,4 +1,7 @@
 import type { Metadata } from 'next';
+
+import { ToastProvider } from '@/components/toast/ToastProvider';
+
 import { antiqueLegacy, mackinac } from './fonts';
 import './globals.css';
 
@@ -17,7 +20,9 @@ export default function RootLayout({
 			lang="en"
 			className={`${antiqueLegacy.variable} ${mackinac.variable} h-full antialiased`}
 		>
-			<body className="min-h-full flex flex-col">{children}</body>
+			<body className="min-h-full flex flex-col">
+				<ToastProvider>{children}</ToastProvider>
+			</body>
 		</html>
 	);
 }

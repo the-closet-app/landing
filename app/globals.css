@@ -83,6 +83,18 @@ textarea {
 	field-sizing: content;
 }
 
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus {
+	-webkit-text-fill-color: #fff;
+	box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.1) inset;
+	caret-color: #fff;
+	transition: background-color 9999s ease-in-out 0s;
+}
+
 .scrollbar-none {
 	scrollbar-width: none;
 }

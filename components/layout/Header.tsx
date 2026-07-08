@@ -5,9 +5,11 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { AuthModal } from '@/components/auth/AuthModal';
+import { ProfileModal } from '@/components/auth/ProfileModal';
 import { ClaiMark } from '@/components/icons/ClaiMark';
 import { LogoutIcon } from '@/components/icons/LogoutIcon';
 import { ProfileIcon } from '@/components/icons/ProfileIcon';
+import { useToast } from '@/components/toast/ToastProvider';
 import { getFirebaseAuth } from '@/lib/firebase';
 
 function getUserInitial(user: User) {
@@ -17,7 +19,9 @@ function getUserInitial(user: User) {
 }
 
 export function Header() {
+	const toast = useToast();
 	const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+	const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 	const [user, setUser] = useState<User | null>(null);
 
 	useEffect(() => {
@@ -26,6 +30,8 @@ export function Header() {
 
 	async function handleLogout() {
 		await signOut(getFirebaseAuth());
+		setIsProfileModalOpen(false);
+		toast.success('Logged out of CLAi.');
 	}
 
 	return (
@@ -57,13 +63,16 @@ export function Header() {
 										{getUserInitial(user)}
 									</button>
 									<div className="invisible absolute right-[-10px] top-[100%] w-44 rounded-3xl bg-[#292929] p-2 text-left opacity-0 shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-[10px] transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
-										<Link
-											href="/profile"
+										<button
+											type="button"
+											onClick={() =>
+												setIsProfileModalOpen(true)
+											}
 											className="flex items-center gap-3 rounded-2xl px-4 py-3 font-antique-legacy text-[1.1rem] text-white/70 transition hover:bg-white/10 hover:text-white"
 										>
 											<ProfileIcon className="size-5 shrink-0" />
 											Profile
-										</Link>
+										</button>
 										<button
 											type="button"
 											onClick={handleLogout}
@@ -98,6 +107,12 @@ export function Header() {
 			<AuthModal
 				isOpen={isAuthModalOpen}
 				onClose={() => setIsAuthModalOpen(false)}
+			/>
+			<ProfileModal
+				isOpen={isProfileModalOpen}
+				onClose={() => setIsProfileModalOpen(false)}
+				onLogout={handleLogout}
+				user={user}
 			/>
 		</>
 	);

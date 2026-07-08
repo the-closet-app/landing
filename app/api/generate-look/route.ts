@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+import { requireAuthenticatedUser } from '@/lib/firebase-auth-server';
+
 type GenerateLookRequestBody = {
 	context?: 'consumer' | 'stylist';
 	prompt?: string;
@@ -85,6 +87,15 @@ ${
 }
 
 export async function POST(request: Request) {
+	const user = await requireAuthenticatedUser(request);
+
+	if (!user) {
+		return NextResponse.json(
+			{ error: 'Please log in to generate a look inspiration image.' },
+			{ status: 401 }
+		);
+	}
+
 	const apiKey = process.env.GEMINI_API_KEY;
 
 	if (!apiKey) {

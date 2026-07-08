@@ -1,6 +1,7 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import {
 	createUserWithEmailAndPassword,
 	getRedirectResult,
@@ -14,6 +15,7 @@ import {
 } from 'firebase/auth';
 
 import { GoogleIcon } from '@/components/icons/GoogleIcon';
+import { useToast } from '@/components/toast/ToastProvider';
 import { getFirebaseAuth, googleProvider } from '@/lib/firebase';
 import { ClaiMark } from '../icons/ClaiMark';
 
@@ -21,6 +23,18 @@ type AuthModalProps = {
 	isOpen: boolean;
 	onClose: () => void;
 };
+
+function subscribeToClient() {
+	return () => {};
+}
+
+function getClientSnapshot() {
+	return true;
+}
+
+function getServerSnapshot() {
+	return false;
+}
 
 function getAuthErrorMessage(error: unknown) {
 	const code = (error as AuthError | undefined)?.code;
@@ -69,27 +83,32 @@ function getAuthErrorMessage(error: unknown) {
 }
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
+	const toast = useToast();
 	const [name, setName] = useState('');
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
-	const [errorMessage, setErrorMessage] = useState('');
-	const [successMessage, setSuccessMessage] = useState('');
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [authMode, setAuthMode] = useState<'login' | 'signup' | 'reset'>(
 		'login'
+	);
+	const isMounted = useSyncExternalStore(
+		subscribeToClient,
+		getClientSnapshot,
+		getServerSnapshot
 	);
 
 	useEffect(() => {
 		void getRedirectResult(getFirebaseAuth())
 			.then((result) => {
 				if (result?.user) {
+					toast.success('Logged in to CLAi.');
 					onClose();
 				}
 			})
 			.catch((error) => {
-				setErrorMessage(getAuthErrorMessage(error));
+				toast.error(getAuthErrorMessage(error));
 			});
-	}, [onClose]);
+	}, [onClose, toast]);
 
 	useEffect(() => {
 		if (!isOpen) {
@@ -109,22 +128,31 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 		};
 	}, [isOpen, onClose]);
 
-	if (!isOpen) {
+	useEffect(() => {
+		if (!isOpen) {
+			return;
+		}
+
+		const originalOverflow = document.body.style.overflow;
+		document.body.style.overflow = 'hidden';
+
+		return () => {
+			document.body.style.overflow = originalOverflow;
+		};
+	}, [isOpen]);
+
+	if (!isOpen || !isMounted) {
 		return null;
 	}
 
 	async function handleEmailLogin(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
-		setErrorMessage('');
-		setSuccessMessage('');
 		setIsSubmitting(true);
 
 		try {
 			if (authMode === 'reset') {
 				await sendPasswordResetEmail(getFirebaseAuth(), email);
-				setSuccessMessage(
-					'Password reset email sent. Check your inbox.'
-				);
+				toast.success('Password reset email sent. Check your inbox.');
 				return;
 			}
 
@@ -142,8 +170,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 				}
 
 				await sendEmailVerification(credential.user);
-				setSuccessMessage(
-					'Account created. We sent you a verification email.'
+				toast.success(
+					'Account created. Check your email to verify your account.'
 				);
 			} else {
 				const credential = await signInWithEmailAndPassword(
@@ -154,28 +182,28 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
 				if (!credential.user.emailVerified) {
 					await sendEmailVerification(credential.user);
-					setSuccessMessage(
-						'You are signed in. We sent a verification email to your inbox.'
+					toast.info(
+						'Logged in. Check your email to verify your account.'
 					);
 					return;
 				}
 
+				toast.success('Logged in to CLAi.');
 				onClose();
 			}
 		} catch (error) {
-			setErrorMessage(getAuthErrorMessage(error));
+			toast.error(getAuthErrorMessage(error));
 		} finally {
 			setIsSubmitting(false);
 		}
 	}
 
 	async function handleGoogleLogin() {
-		setErrorMessage('');
-		setSuccessMessage('');
 		setIsSubmitting(true);
 
 		try {
 			await signInWithPopup(getFirebaseAuth(), googleProvider);
+			toast.success('Logged in with Google.');
 			onClose();
 		} catch (error) {
 			const code = (error as AuthError | undefined)?.code;
@@ -188,15 +216,15 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 				return;
 			}
 
-			setErrorMessage(getAuthErrorMessage(error));
+			toast.error(getAuthErrorMessage(error));
 		} finally {
 			setIsSubmitting(false);
 		}
 	}
 
-	return (
+	return createPortal(
 		<div
-			className="fixed inset-0 z-50 flex items-center justify-center bg-[#1C1C1C]/75 px-4 backdrop-blur-sm"
+			className="fixed inset-0 z-[2147483646] flex h-dvh w-dvw items-center justify-center overflow-hidden bg-[#1C1C1C]/95 px-4 backdrop-blur-sm"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="auth-modal-title"
@@ -207,8 +235,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 				aria-label="Close login modal"
 				onClick={onClose}
 			/>
-			<div className="relative w-full max-w-[460px] rounded-[34px] bg-[#292929] p-10 text-white sm:p-14">
-				<div className="mb-8 flex items-center justify-between gap-6">
+			<div className="relative w-full max-w-[420px] rounded-[34px] bg-[#292929] p-8 text-white sm:p-10">
+				<div className="mb-10 flex items-center justify-between gap-6">
 					<h2
 						id="auth-modal-title"
 						className="font-mackinac m-auto text-4xl font-normal text-center tracking-[-.04em] flex items-center gap-3 text-white"
@@ -274,21 +302,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 						</label>
 					) : null}
 
-					{errorMessage ? (
-						<p className="rounded-2xl bg-[#F47016]/10 px-4 py-3 font-antique-legacy text-sm tracking-[-.02em] text-[#ffb178]">
-							{errorMessage}
-						</p>
-					) : null}
-					{successMessage ? (
-						<p className="rounded-2xl bg-white/10 px-4 py-3 font-antique-legacy text-sm tracking-[-.02em] text-white/75">
-							{successMessage}
-						</p>
-					) : null}
-
 					<button
 						type="submit"
 						disabled={isSubmitting}
-						className="mt-2 h-14 rounded-full bg-[#F47016] px-6 font-antique-legacy text-[1.2rem] font-medium tracking-[-.02em] text-white transition hover:bg-[#F47016] disabled:cursor-not-allowed disabled:opacity-60"
+						className="h-14 rounded-full bg-[#F47016] px-6 font-antique-legacy text-[1.2rem] font-medium tracking-[-.02em] text-white transition hover:bg-[#F47016] disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						{isSubmitting
 							? authMode === 'reset'
@@ -304,47 +321,50 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 					</button>
 				</form>
 
-				{authMode === 'login' ? (
+				<div
+					className={`mt-4 flex font-antique-legacy text-[1.1rem] tracking-[-.01em] ${
+						authMode === 'login'
+							? 'items-center justify-between gap-4'
+							: 'justify-center'
+					}`}
+				>
+					{authMode === 'login' ? (
+						<button
+							type="button"
+							onClick={() => {
+								setAuthMode('reset');
+							}}
+							className="text-white/30 transition hover:text-white/50"
+						>
+							Forgot password?
+						</button>
+					) : null}
 					<button
 						type="button"
 						onClick={() => {
-							setErrorMessage('');
-							setSuccessMessage('');
-							setAuthMode('reset');
+							setAuthMode((currentMode) => {
+								if (currentMode === 'signup') {
+									return 'login';
+								}
+
+								return 'signup';
+							});
 						}}
-						className="mt-4 w-full text-center font-antique-legacy text-sm tracking-[-.02em] text-white/55 transition hover:text-white"
+						className="text-white/30 transition hover:text-white/50"
 					>
-						Forgot password?
+						{authMode === 'signup'
+							? 'Already have an account? Login'
+							: authMode === 'reset'
+								? 'Back to login'
+								: 'Create an account'}
 					</button>
-				) : null}
-
-				<button
-					type="button"
-					onClick={() => {
-						setErrorMessage('');
-						setSuccessMessage('');
-						setAuthMode((currentMode) => {
-							if (currentMode === 'signup') {
-								return 'login';
-							}
-
-							return 'signup';
-						});
-					}}
-					className="mt-4 w-full text-center font-antique-legacy text-sm tracking-[-.02em] text-white/55 transition hover:text-white"
-				>
-					{authMode === 'signup'
-						? 'Already have an account? Login'
-						: authMode === 'reset'
-							? 'Back to login'
-							: 'Need an account? Sign up'}
-				</button>
+				</div>
 
 				{authMode !== 'reset' ? (
 					<>
 						<div className="my-6 flex items-center gap-3 text-white/35">
 							<div className="h-px flex-1 bg-white/10" />
-							<span className="font-antique-legacy text-sm">
+							<span className="font-antique-legacy text-[1.1rem]">
 								or
 							</span>
 							<div className="h-px flex-1 bg-white/10" />
@@ -362,6 +382,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 					</>
 				) : null}
 			</div>
-		</div>
+		</div>,
+		document.body
 	);
 }

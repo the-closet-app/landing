@@ -1,13 +1,17 @@
 'use client';
 
 import type { ChangeEvent, FormEvent } from 'react';
+import { onAuthStateChanged, type User } from 'firebase/auth';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
 
+import { AuthModal } from '@/components/auth/AuthModal';
 import { ClaiMark } from '@/components/icons/ClaiMark';
 import { Upload } from '@/components/icons/Upload';
 import { Mic } from '@/components/icons/Mic';
+import { useToast } from '@/components/toast/ToastProvider';
+import { getFirebaseAuth } from '@/lib/firebase';
 
 const contextOptions = [
 	{
@@ -182,6 +186,7 @@ function getChatHistory(messages: ChatMessage[]) {
 }
 
 export function Ask() {
+	const toast = useToast();
 	const [activeContext, setActiveContext] =
 		useState<ContextOption>('consumer');
 	const activeOption =
@@ -196,12 +201,13 @@ export function Ask() {
 	const [isPromptFocused, setIsPromptFocused] = useState(false);
 	const [isListening, setIsListening] = useState(false);
 	const [isSpeechSupported, setIsSpeechSupported] = useState(false);
-	const [error, setError] = useState('');
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 	const [generatingLookForMessageId, setGeneratingLookForMessageId] =
 		useState<string | null>(null);
 	const [isChatOpen, setIsChatOpen] = useState(false);
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
+	const [user, setUser] = useState<User | null>(null);
 	const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(
 		null
 	);
@@ -217,6 +223,10 @@ export function Ask() {
 		getClientSnapshot,
 		getServerSnapshot
 	);
+
+	useEffect(() => {
+		return onAuthStateChanged(getFirebaseAuth(), setUser);
+	}, []);
 
 	useEffect(() => {
 		const recognitionConstructor =
@@ -352,7 +362,6 @@ export function Ask() {
 		setAnimatedPlaceholder('');
 		setPromptValue('');
 		setIsPromptFocused(false);
-		setError('');
 	}
 
 	function handlePromptBlur() {
@@ -402,13 +411,13 @@ export function Ask() {
 		}
 
 		if (!supportedImageTypes.includes(file.type)) {
-			setError('Upload a JPG, PNG, or WebP image.');
+			toast.error('Upload a JPG, PNG, or WebP image.');
 			event.target.value = '';
 			return;
 		}
 
 		if (file.size > maxImageSize) {
-			setError('Upload an image smaller than 5MB.');
+			toast.error('Upload an image smaller than 5MB.');
 			event.target.value = '';
 			return;
 		}
@@ -416,9 +425,9 @@ export function Ask() {
 		try {
 			const image = await optimizeImage(file);
 			setSelectedImage(image);
-			setError('');
+			toast.success('Image added.');
 		} catch {
-			setError('CLAi could not read that image.');
+			toast.error('CLAi could not read that image.');
 			event.target.value = '';
 		}
 	}
@@ -427,7 +436,6 @@ export function Ask() {
 		recognitionRef.current?.stop();
 		setIsChatOpen(false);
 		setMessages([]);
-		setError('');
 		setPromptValue('');
 		handleImageRemove();
 	}
@@ -439,13 +447,19 @@ export function Ask() {
 		const outgoingImage = selectedImage;
 
 		if (!prompt && !outgoingImage) {
-			setError('Ask CLAi a styling question or add an image first.');
+			toast.info('Ask CLAi a styling question first.');
+			return;
+		}
+
+		if (!user) {
+			recognitionRef.current?.stop();
+			toast.info('Please log in to use Ask CLAi.');
+			setIsAuthModalOpen(true);
 			return;
 		}
 
 		recognitionRef.current?.stop();
 		setIsSubmitting(true);
-		setError('');
 		setIsChatOpen(true);
 		const history = getChatHistory(messages);
 
@@ -477,9 +491,11 @@ export function Ask() {
 		}
 
 		try {
+			const idToken = await user.getIdToken();
 			const response = await fetch('/api/ask', {
 				method: 'POST',
 				headers: {
+					Authorization: `Bearer ${idToken}`,
 					'Content-Type': 'application/json',
 				},
 				body: JSON.stringify({
@@ -523,6 +539,7 @@ export function Ask() {
 					? submitError.message
 					: 'CLAi could not answer right now.';
 
+			toast.error(message);
 			setMessages((currentMessages) =>
 				currentMessages.map((chatMessage) =>
 					chatMessage.id === assistantMessageId
@@ -539,6 +556,12 @@ export function Ask() {
 	}
 
 	async function handleGenerateLook(messageId: string) {
+		if (!user) {
+			toast.info('Please log in to generate a look inspiration image.');
+			setIsAuthModalOpen(true);
+			return;
+		}
+
 		const assistantIndex = messages.findIndex(
 			(message) =>
 				message.id === messageId && message.role === 'assistant'
@@ -557,12 +580,13 @@ export function Ask() {
 		}
 
 		setGeneratingLookForMessageId(messageId);
-		setError('');
 
 		try {
+			const idToken = await user.getIdToken();
 			const response = await fetch('/api/generate-look', {
 				method: 'POST',
 				headers: {
+					Authorization: `Bearer ${idToken}`,
 					'Content-Type': 'application/json',
 				},
 				body: JSON.stringify({
@@ -601,7 +625,7 @@ export function Ask() {
 				)
 			);
 		} catch (generateError) {
-			setError(
+			toast.error(
 				generateError instanceof Error
 					? generateError.message
 					: 'CLAi could not generate an image right now.'
@@ -731,7 +755,7 @@ export function Ask() {
 			? createPortal(
 					<div
 						data-testid="ask-chat-overlay"
-						className="fixed left-0 top-0 z-[2147483647] flex h-dvh w-dvw flex-col overflow-hidden bg-[#1C1C1C] px-4 py-5 text-left sm:px-8 sm:py-4"
+						className="fixed left-0 top-0 z-[2147483646] flex h-dvh w-dvw flex-col overflow-hidden bg-[#1C1C1C] px-4 py-5 text-left sm:px-8 sm:py-4"
 					>
 						<div className="absolute right-5 top-5 z-10 sm:right-8 sm:top-7">
 							<button
@@ -886,11 +910,10 @@ export function Ask() {
 			</div>
 			{isChatOpen ? null : renderComposer(false)}
 			{chatOverlay}
-			{error ? (
-				<p className="w-full rounded-2xl border border-[#F47016]/30 bg-[#F47016]/10 px-5 py-4 text-left text-sm font-medium text-white/80">
-					{error}
-				</p>
-			) : null}
+			<AuthModal
+				isOpen={isAuthModalOpen}
+				onClose={() => setIsAuthModalOpen(false)}
+			/>
 		</div>
 	);
 }
