@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { saveAskChatTurn } from '@/lib/chat-history-server';
 import {
 	getDailyMessageUsage,
 	incrementDailyMessageUsage,
@@ -12,6 +13,7 @@ import {
 type AskRequestBody = {
 	prompt?: string;
 	context?: 'consumer' | 'stylist';
+	chatId?: string;
 	history?: Array<{
 		role?: 'user' | 'assistant';
 		content?: string;
@@ -197,6 +199,7 @@ export async function POST(request: Request) {
 
 	const prompt = body.prompt?.trim();
 	const context = body.context === 'stylist' ? 'stylist' : 'consumer';
+	const chatId = body.chatId?.trim() || crypto.randomUUID();
 	const image = body.image;
 	const hasImage = Boolean(image?.data && image.mimeType);
 	const historyContents = getHistoryContents(body.history);
@@ -282,24 +285,53 @@ export async function POST(request: Request) {
 			.join('\n')
 			.trim();
 
-		if (!answer || candidate?.finishReason === 'MAX_TOKENS') {
+		if (candidate?.finishReason === 'MAX_TOKENS') {
 			return NextResponse.json(
 				{
-					error:
-						candidate?.finishReason === 'MAX_TOKENS'
-							? 'CLAi started a response but did not finish. Please try again.'
-							: 'Gemini did not return a styling response.',
+					error: 'CLAi started a response but did not finish. Please try again.',
 				},
 				{ status: 502 }
 			);
+		}
+
+		if (!answer) {
+			return NextResponse.json({
+				answer: '',
+				chatId,
+				noTextResponse: true,
+				usage,
+			});
 		}
 
 		const nextUsage = await incrementDailyMessageUsage({
 			idToken,
 			uid: user.localId,
 		});
+		let chatSaved = true;
 
-		return NextResponse.json({ answer, usage: nextUsage });
+		try {
+			await saveAskChatTurn({
+				answer,
+				chatId,
+				context,
+				hasImage,
+				idToken,
+				imageMimeType: image?.mimeType,
+				imageName: image?.name,
+				prompt: prompt ?? '',
+				uid: user.localId,
+			});
+		} catch (chatSaveError) {
+			chatSaved = false;
+			console.error(chatSaveError);
+		}
+
+		return NextResponse.json({
+			answer,
+			chatId,
+			chatSaved,
+			usage: nextUsage,
+		});
 	} catch {
 		return NextResponse.json(
 			{ error: 'Unable to reach Gemini. Please try again.' },

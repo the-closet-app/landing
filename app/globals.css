@@ -79,6 +79,31 @@ body {
 	animation: micColorPulse 1.15s ease-in-out infinite;
 }
 
+@keyframes claiLoaderSpin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes claiLoaderColorPulse {
+	0%,
+	100% {
+		color: #787878;
+		opacity: 0.7;
+	}
+	50% {
+		color: #f47016;
+		opacity: 1;
+	}
+}
+
+.clai-loading-mark {
+	animation:
+		claiLoaderSpin 1.8s linear infinite,
+		claiLoaderColorPulse 1.15s ease-in-out infinite;
+	transform-origin: center;
+}
+
 textarea {
 	field-sizing: content;
 }

@@ -224,7 +224,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
 	return createPortal(
 		<div
-			className="fixed inset-0 z-[2147483646] flex h-dvh w-dvw items-center justify-center overflow-hidden bg-[#1C1C1C]/95 px-4 backdrop-blur-sm"
+			className="fixed inset-0 z-[2147483646] flex h-dvh w-dvw items-center justify-center overflow-y-auto bg-[#1C1C1C]/95 px-3 py-4 backdrop-blur-sm sm:px-4"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="auth-modal-title"
@@ -235,14 +235,14 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 				aria-label="Close login modal"
 				onClick={onClose}
 			/>
-			<div className="relative w-full max-w-[420px] rounded-[34px] bg-[#292929] p-8 text-white sm:p-10">
-				<div className="mb-10 flex items-center justify-between gap-6">
+			<div className="relative my-auto w-full max-w-[420px] rounded-[28px] bg-[#292929] p-6 text-white sm:rounded-[34px] sm:p-10">
+				<div className="mb-8 flex items-center justify-between gap-4 sm:mb-10 sm:gap-6">
 					<h2
 						id="auth-modal-title"
-						className="font-mackinac m-auto text-4xl font-normal text-center tracking-[-.04em] flex items-center gap-3 text-white"
+						className="m-auto flex items-center gap-3 text-center font-mackinac text-3xl font-normal tracking-[-.04em] text-white sm:text-4xl"
 					>
-						<ClaiMark className="h-9 w-10 shrink-0 text-[#D88435] sm:h-8 sm:w-8" />
-						<span className="font-mackinac text-4xl font-normal leading-none sm:text-4xl">
+						<ClaiMark className="h-8 w-9 shrink-0 text-[#D88435] sm:h-8 sm:w-8" />
+						<span className="font-mackinac text-3xl font-normal leading-none sm:text-4xl">
 							{authMode === 'reset'
 								? 'Reset password'
 								: authMode === 'login'
@@ -272,7 +272,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 									setName(event.target.value)
 								}
 								required
-								className="h-14 rounded-full bg-white/10 font-antique-legacy px-8 text-[1.1rem] text-white outline-none transition placeholder:text-white/35"
+								className="h-[52px] rounded-full bg-white/10 px-6 font-antique-legacy text-base text-white outline-none transition placeholder:text-white/35 sm:h-14 sm:px-8 sm:text-[1.1rem]"
 								placeholder="Your name"
 							/>
 						</label>
@@ -283,7 +283,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 							value={email}
 							onChange={(event) => setEmail(event.target.value)}
 							required
-							className="h-14 rounded-full bg-white/10 font-antique-legacy px-8 text-[1.1rem] text-white outline-none transition placeholder:text-white/35"
+							className="h-[52px] rounded-full bg-white/10 px-6 font-antique-legacy text-base text-white outline-none transition placeholder:text-white/35 sm:h-14 sm:px-8 sm:text-[1.1rem]"
 							placeholder="you@example.com"
 						/>
 					</label>
@@ -296,7 +296,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 									setPassword(event.target.value)
 								}
 								required
-								className="h-14 rounded-full bg-white/10 font-antique-legacy px-8 text-[1.1rem] text-white outline-none transition placeholder:text-white/35"
+								className="h-[52px] rounded-full bg-white/10 px-6 font-antique-legacy text-base text-white outline-none transition placeholder:text-white/35 sm:h-14 sm:px-8 sm:text-[1.1rem]"
 								placeholder="Your password"
 							/>
 						</label>
@@ -305,7 +305,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 					<button
 						type="submit"
 						disabled={isSubmitting}
-						className="h-14 rounded-full bg-[#F47016] px-6 font-antique-legacy text-[1.2rem] font-medium tracking-[-.02em] text-white transition hover:bg-[#F47016] disabled:cursor-not-allowed disabled:opacity-60"
+						className="h-[52px] rounded-full bg-[#F47016] px-6 font-antique-legacy text-lg font-medium tracking-[-.02em] text-white transition hover:bg-[#F47016] disabled:cursor-not-allowed disabled:opacity-60 sm:h-14 sm:text-[1.2rem]"
 					>
 						{isSubmitting
 							? authMode === 'reset'
@@ -322,7 +322,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 				</form>
 
 				<div
-					className={`mt-4 flex font-antique-legacy text-[1.1rem] tracking-[-.01em] ${
+					className={`mt-4 flex font-antique-legacy text-base tracking-[-.01em] sm:text-[1.1rem] ${
 						authMode === 'login'
 							? 'items-center justify-between gap-4'
 							: 'justify-center'
@@ -364,7 +364,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 					<>
 						<div className="my-6 flex items-center gap-3 text-white/35">
 							<div className="h-px flex-1 bg-white/10" />
-							<span className="font-antique-legacy text-[1.1rem]">
+							<span className="font-antique-legacy text-base sm:text-[1.1rem]">
 								or
 							</span>
 							<div className="h-px flex-1 bg-white/10" />
@@ -374,7 +374,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 							type="button"
 							onClick={handleGoogleLogin}
 							disabled={isSubmitting}
-							className="flex h-14 w-full items-center justify-center gap-3 rounded-full border border-[#e5e5e5]/10 bg-white text-[1.1rem] font-medium tracking-[-.02em] text-[#1C1C1C] transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+							className="flex h-[52px] w-full items-center justify-center gap-3 rounded-full border border-[#e5e5e5]/10 bg-white text-base font-medium tracking-[-.02em] text-[#1C1C1C] transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60 sm:h-14 sm:text-[1.1rem]"
 						>
 							<GoogleIcon className="size-6 shrink-0" />
 							Continue with Google

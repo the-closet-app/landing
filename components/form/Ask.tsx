@@ -19,10 +19,10 @@ const contextOptions = [
 		label: 'Consumer',
 		prompts: [
 			'How do I style a white shirt?',
-			'What should I wear to a summer wedding?',
+			'What should I wear to a wedding?',
 			'Help me style black wide-leg trousers.',
 			'What colors work with olive green?',
-			'Give me outfit ideas for a casual first date.',
+			'Give me outfit ideas for a casual date.',
 		],
 	},
 	{
@@ -206,18 +206,23 @@ export function Ask() {
 	const [generatingLookForMessageId, setGeneratingLookForMessageId] =
 		useState<string | null>(null);
 	const [isChatOpen, setIsChatOpen] = useState(false);
+	const [chatId, setChatId] = useState<string | null>(null);
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [user, setUser] = useState<User | null>(null);
 	const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(
 		null
 	);
+	const hasStartedChat = messages.length > 0;
 	const imageInputRef = useRef<HTMLInputElement | null>(null);
 	const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+	const chatScrollRef = useRef<HTMLDivElement | null>(null);
 	const transcriptBaseRef = useRef('');
 	const overlayPlaceholder =
 		isListening && !promptValue
 			? 'CLAi is listening...'
-			: animatedPlaceholder;
+			: hasStartedChat
+				? 'Ask a follow-up...'
+				: animatedPlaceholder;
 	const isMounted = useSyncExternalStore(
 		subscribeToClient,
 		getClientSnapshot,
@@ -288,7 +293,7 @@ export function Ask() {
 	}, []);
 
 	useEffect(() => {
-		if (isPromptFocused || promptValue) {
+		if (hasStartedChat || isPromptFocused || promptValue) {
 			return;
 		}
 
@@ -334,6 +339,7 @@ export function Ask() {
 	}, [
 		activePrompts,
 		characterIndex,
+		hasStartedChat,
 		isDeleting,
 		isPromptFocused,
 		promptIndex,
@@ -352,6 +358,25 @@ export function Ask() {
 			document.body.style.overflow = originalOverflow;
 		};
 	}, [isChatOpen]);
+
+	useEffect(() => {
+		if (!isChatOpen) {
+			return;
+		}
+
+		const scrollContainer = chatScrollRef.current;
+
+		if (!scrollContainer) {
+			return;
+		}
+
+		requestAnimationFrame(() => {
+			scrollContainer.scrollTo({
+				behavior: 'smooth',
+				top: scrollContainer.scrollHeight,
+			});
+		});
+	}, [generatingLookForMessageId, isChatOpen, messages]);
 
 	function handleContextChange(context: ContextOption) {
 		recognitionRef.current?.stop();
@@ -435,6 +460,7 @@ export function Ask() {
 	function handleChatClose() {
 		recognitionRef.current?.stop();
 		setIsChatOpen(false);
+		setChatId(null);
 		setMessages([]);
 		setPromptValue('');
 		handleImageRemove();
@@ -461,6 +487,8 @@ export function Ask() {
 		recognitionRef.current?.stop();
 		setIsSubmitting(true);
 		setIsChatOpen(true);
+		const activeChatId = chatId ?? crypto.randomUUID();
+		setChatId(activeChatId);
 		const history = getChatHistory(messages);
 
 		const userMessage: ChatMessage = {
@@ -499,6 +527,7 @@ export function Ask() {
 					'Content-Type': 'application/json',
 				},
 				body: JSON.stringify({
+					chatId: activeChatId,
 					context: activeContext,
 					history,
 					image: outgoingImage
@@ -514,6 +543,8 @@ export function Ask() {
 
 			const data = (await response.json()) as {
 				answer?: string;
+				chatId?: string;
+				chatSaved?: boolean;
 				error?: string;
 			};
 
@@ -533,6 +564,10 @@ export function Ask() {
 						: message
 				)
 			);
+
+			if (data.chatId) {
+				setChatId(data.chatId);
+			}
 		} catch (submitError) {
 			const message =
 				submitError instanceof Error
@@ -640,26 +675,29 @@ export function Ask() {
 			<form
 				className={
 					isOverlay
-						? 'mx-auto mt-auto flex w-[min(92vw,920px)] shrink-0 flex-col justify-between gap-5 rounded-[32px] border-[0.5] border-[#e5e5e5]/5 bg-[#292929]/50 px-5 py-5 text-left shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] sm:rounded-[34px]'
-						: 'flex w-full flex-col justify-between gap-5 rounded-[32px] border-[0.5] border-[#e5e5e5]/5 bg-[#292929]/50 px-5 py-5 text-left shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] sm:rounded-[34px] sm:px-6 sm:py-6'
+						? 'mx-auto mt-auto flex w-[min(94vw,920px)] shrink-0 flex-col justify-between gap-4 rounded-[26px] border-[0.5] border-[#e5e5e5]/5 bg-[#292929]/50 px-4 py-4 text-left shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] sm:gap-5 sm:rounded-[34px] sm:px-5 sm:py-5'
+						: 'flex w-full min-h-[180px] flex-col justify-between gap-4 rounded-[26px] border-[0.5] border-[#e5e5e5]/5 bg-[#292929]/50 px-4 py-4 text-left shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] sm:gap-5 sm:rounded-[34px] sm:px-6 sm:py-6'
 				}
 				onSubmit={handleSubmit}
 			>
-				<div className="flex min-w-0 items-start gap-5 px-2 py-1">
-					<ClaiMark className="mt-[0.2rem] h-6 w-[26px] shrink-0 text-[#787878]" />
+				<div className="flex min-w-0 items-start gap-3 px-1 py-1 sm:gap-5 sm:px-2">
+					<ClaiMark className="mt-[0.2rem] h-5 w-[22px] shrink-0 text-[#787878] sm:h-6 sm:w-[26px]" />
 					<label className="sr-only" htmlFor="ask-clai-prompt">
 						Ask CLAi prompt for {activeOption.label}
 					</label>
 					<div className="relative min-w-0 flex-1">
-						{!promptValue && (!isPromptFocused || isListening) ? (
+						{!promptValue &&
+						(hasStartedChat || !isPromptFocused || isListening) ? (
 							<p
-								className="pointer-events-none absolute left-0 top-0 pr-2 text-lg font-medium leading-relaxed tracking-[-.02em] text-white/45 sm:text-[1.1rem]"
+								className="pointer-events-none absolute left-0 top-0 pr-2 text-base font-medium leading-relaxed tracking-[-.02em] text-white/45 sm:text-[1.1rem]"
 								aria-hidden="true"
 							>
 								{overlayPlaceholder}
-								<span className="ml-0.5 animate-pulse text-white/55">
-									_
-								</span>
+								{isListening || !hasStartedChat ? (
+									<span className="ml-0.5 animate-pulse text-white/55">
+										_
+									</span>
+								) : null}
 							</p>
 						) : null}
 						<textarea
@@ -672,11 +710,11 @@ export function Ask() {
 							}
 							key={activeOption.id}
 							rows={isOverlay ? 1 : 2}
-							className="w-full resize-none bg-transparent text-lg font-medium leading-[1.3] tracking-[-.02em] text-[white]/75 outline-none placeholder:text-white/45 sm:text-[1.1rem]"
+							className="w-full resize-none bg-transparent text-base font-medium leading-[1.3] tracking-[-.02em] text-[white]/75 outline-none placeholder:text-white/45 sm:text-[1.1rem]"
 						/>
 					</div>
 				</div>
-				<div className="flex items-center justify-between gap-3">
+				<div className="flex flex-wrap items-center justify-end gap-2 sm:flex-nowrap sm:justify-between sm:gap-3">
 					<div className="flex min-w-0 flex-1 items-center">
 						{selectedImage ? (
 							<div className="relative size-11 shrink-0">
@@ -701,7 +739,7 @@ export function Ask() {
 						type="button"
 						onClick={handleSpeechToggle}
 						disabled={!isSpeechSupported}
-						className={`shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] grid size-12 place-items-center rounded-full bg-white/10 transition focus:outline-none ${
+						className={`shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] grid size-11 place-items-center rounded-full bg-white/10 transition focus:outline-none sm:size-12 ${
 							!isSpeechSupported
 								? 'cursor-not-allowed opacity-40'
 								: ''
@@ -725,7 +763,7 @@ export function Ask() {
 					<button
 						type="button"
 						onClick={handleImageButtonClick}
-						className="shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] grid size-12 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/10 focus:outline-none"
+						className="shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] grid size-11 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/10 focus:outline-none sm:size-12"
 						aria-label="Add an outfit image"
 					>
 						<Upload />
@@ -741,7 +779,7 @@ export function Ask() {
 						type="submit"
 						data-testid="ask-clai-submit"
 						disabled={isSubmitting}
-						className="h-12 rounded-full bg-[#F47016] px-6 text-base font-medium tracking-[-.02em] text-white transition hover:bg-[#F47016] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:px-7 sm:text-lg"
+						className="h-11 rounded-full bg-[#F47016] px-5 text-sm font-medium tracking-[-.02em] text-white transition hover:bg-[#F47016] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:h-12 sm:px-7 sm:text-lg"
 					>
 						{isSubmitting ? 'Asking...' : 'Ask CLAi'}
 					</button>
@@ -755,9 +793,9 @@ export function Ask() {
 			? createPortal(
 					<div
 						data-testid="ask-chat-overlay"
-						className="fixed left-0 top-0 z-[2147483646] flex h-dvh w-dvw flex-col overflow-hidden bg-[#1C1C1C] px-4 py-5 text-left sm:px-8 sm:py-4"
+						className="fixed left-0 top-0 z-[2147483646] flex h-dvh w-dvw flex-col overflow-hidden bg-[#1C1C1C] px-3 py-4 text-left sm:px-8 sm:py-4"
 					>
-						<div className="absolute right-5 top-5 z-10 sm:right-8 sm:top-7">
+						<div className="absolute right-4 top-4 z-10 sm:right-8 sm:top-7">
 							<button
 								type="button"
 								onClick={(event) => {
@@ -771,7 +809,10 @@ export function Ask() {
 								×
 							</button>
 						</div>
-						<div className="scrollbar-none mx-auto flex w-[min(92vw,920px)] flex-1 flex-col space-y-6 overflow-y-auto pb-8 pt-20 sm:pt-24">
+						<div
+							ref={chatScrollRef}
+							className="scrollbar-none mx-auto flex w-[min(94vw,920px)] flex-1 flex-col space-y-5 overflow-y-auto pb-6 pt-16 sm:space-y-6 sm:pb-8 sm:pt-24"
+						>
 							{messages.map((message) => (
 								<div
 									key={message.id}
@@ -782,9 +823,9 @@ export function Ask() {
 									}`}
 								>
 									<article
-										className={`font-antique-legacy text-[1.1rem] font-medium ${
+										className={`font-antique-legacy text-base font-medium sm:text-[1.1rem] ${
 											message.role === 'user'
-												? 'w-auto rounded-[24px] bg-white/10 px-3 py-3 leading-[1.3] text-white/40 backdrop-blur-[10px] sm:max-w-[50%]'
+												? 'w-auto max-w-[86%] rounded-[22px] bg-white/10 px-4 py-3 leading-[1.3] text-white/70 backdrop-blur-[10px] sm:max-w-[50%]'
 												: 'w-full text-[white]/70 leading-[1.3]'
 										}`}
 									>
@@ -795,58 +836,69 @@ export function Ask() {
 												className="mb-3 h-14 w-14 rounded-[12px] object-cover"
 											/>
 										) : null}
-										<ReactMarkdown
-											components={{
-												p: ({ children }) => (
-													<p className="mb-2 last:mb-0">
-														{children}
-													</p>
-												),
-												strong: ({ children }) => (
-													<strong className="font-medium">
-														{children}
-													</strong>
-												),
-												h1: ({ children }) => (
-													<p className="mb-2 mt-4 text-lg font-medium text-[white]/70 first:mt-0">
-														{children}
-													</p>
-												),
-												h2: ({ children }) => (
-													<p className="mb-2 mt-4 text-base font-medium text-[white]/70 first:mt-0">
-														{children}
-													</p>
-												),
-												h3: ({ children }) => (
-													<p className="mb-2 mt-4 font-medium text-[white]/70 first:mt-0">
-														{children}
-													</p>
-												),
-												ul: ({ children }) => (
-													<ul className="mb-3 ml-5 list-disc space-y-1 marker:text-current last:mb-0">
-														{children}
-													</ul>
-												),
-												ol: ({ children }) => (
-													<ol className="mb-3 ml-5 list-decimal space-y-1 marker:text-current last:mb-0">
-														{children}
-													</ol>
-												),
-												li: ({ children }) => (
-													<li className="pl-1">
-														{children}
-													</li>
-												),
-												hr: () => null,
-											}}
-										>
-											{message.content}
-										</ReactMarkdown>
+										{message.content ===
+										'CLAi is thinking...' ? (
+											<div
+												className="flex min-h-8 items-center"
+												aria-label="CLAi is thinking"
+												role="status"
+											>
+												<ClaiMark className="clai-loading-mark mt-[0.2rem] h-6 w-[26px] shrink-0 text-[#787878]" />
+											</div>
+										) : (
+											<ReactMarkdown
+												components={{
+													p: ({ children }) => (
+														<p className="mb-2 last:mb-0">
+															{children}
+														</p>
+													),
+													strong: ({ children }) => (
+														<strong className="font-medium">
+															{children}
+														</strong>
+													),
+													h1: ({ children }) => (
+														<p className="mb-2 mt-4 text-lg font-medium text-[white]/70 first:mt-0">
+															{children}
+														</p>
+													),
+													h2: ({ children }) => (
+														<p className="mb-2 mt-4 text-base font-medium text-[white]/70 first:mt-0">
+															{children}
+														</p>
+													),
+													h3: ({ children }) => (
+														<p className="mb-2 mt-4 font-medium text-[white]/70 first:mt-0">
+															{children}
+														</p>
+													),
+													ul: ({ children }) => (
+														<ul className="mb-3 ml-5 list-disc space-y-1 marker:text-current last:mb-0">
+															{children}
+														</ul>
+													),
+													ol: ({ children }) => (
+														<ol className="mb-3 ml-5 list-decimal space-y-1 marker:text-current last:mb-0">
+															{children}
+														</ol>
+													),
+													li: ({ children }) => (
+														<li className="pl-1">
+															{children}
+														</li>
+													),
+													hr: () => null,
+												}}
+											>
+												{message.content}
+											</ReactMarkdown>
+										)}
 										{message.generatedImageUrl ? (
 											<img
 												src={message.generatedImageUrl}
 												alt="Generated modest fashion look inspiration"
-												className="mt-5 aspect-square w-full max-w-[360px] rounded-[24px] object-cover"
+												className="mt-5 max-h-[58vh] w-full max-w-[320px] object-contain drop-shadow-[0_18px_32px_rgba(0,0,0,0.38)] sm:max-h-[520px] sm:max-w-[360px]"
 											/>
 										) : null}
 										{message.role === 'assistant' &&
@@ -864,7 +916,12 @@ export function Ask() {
 													generatingLookForMessageId !==
 													null
 												}
-												className="mt-5 rounded-full py-2 text-[1em] font-medium text-white/20 hover:text-white/40 transition disabled:cursor-not-allowed disabled:opacity-40"
+												className={`mt-5 rounded-full py-2 text-[1em] font-medium text-white/20 hover:text-white/40 transition disabled:cursor-not-allowed disabled:opacity-40 ${
+													generatingLookForMessageId ===
+													message.id
+														? 'animate-pulse'
+														: ''
+												}`}
 											>
 												{generatingLookForMessageId ===
 												message.id
@@ -883,9 +940,9 @@ export function Ask() {
 			: null;
 
 	return (
-		<div className="z-10 flex w-full flex-col items-center gap-6 mt-10">
+		<div className="z-10 mt-6 flex w-full flex-col items-center gap-5 sm:mt-10 sm:gap-6">
 			<div
-				className="border-1 border-[#e5e5e5]/5 grid h-16 w-[min(90vw,280px)] grid-cols-2 rounded-full bg-white/10 p-[0.25rem] font-medium font-antique-legacy text-white/45 backdrop-blur-[10px] sm:h-[52px] sm:text-base"
+				className="border-1 grid h-14 w-[min(90vw,280px)] grid-cols-2 rounded-full border-[#e5e5e5]/5 bg-white/10 p-[0.25rem] font-antique-legacy font-medium text-white/45 backdrop-blur-[10px] sm:h-[52px] sm:text-base"
 				aria-label="Ask CLAi context"
 			>
 				{contextOptions.map((option) => {
@@ -896,7 +953,7 @@ export function Ask() {
 							key={option.id}
 							type="button"
 							onClick={() => handleContextChange(option.id)}
-							className={`rounded-full transition duration-200 text-[1.1rem] tracking-[-.04em] ${
+							className={`rounded-full text-base tracking-[-.04em] transition duration-200 sm:text-[1.1rem] ${
 								isActive
 									? 'bg-[#E0E0E0] text-[#1C1C1C] shadow-[inset_0_2px_2px_0_#FFF,0_0_12px_0_rgba(0,0,0,0.10)]'
 									: 'text-[#787878] hover:text-white/75'
