@@ -1,4 +1,5 @@
 import { ClaiMark } from '@/components/icons/ClaiMark';
+import Link from 'next/link';
 
 export function Footer() {
 	return (
@@ -13,22 +14,36 @@ export function Footer() {
 							</span>
 						</div>
 						<p className="sm:max-w-[560px] font-antique-legacy text-base font-medium leading-[1.45] tracking-[-.02em] text-white/50 sm:text-[1.1rem]">
-							CLAi is your personal AI styling assistant, designed
-							to help you make better decisions with what you
-							wear. From answering everyday fashion questions to
-							guiding more intentional use of your wardrobe, CLAi
-							provides thoughtful, context-aware support tailored
-							to you.
+							CLAi helps you make better decisions about what to wear, what to buy, how to style, and how to get 
+							more from fashion. From everyday styling questions and fashion fixes to personalised 
+							recommendations that help you unlock more from your wardrobe, CLAi delivers intelligent 
+							guidance for every stage of the fashion experience..
+						</p>
+						<p className="font-antique-legacy text-base font-normal tracking-[-.02em] text-white/50 sm:text-[1.1rem]">
+							<Link href="/privacy-policy" className="hover:text-[white]/65 mr-1">
+								Privacy Policy
+							</Link>
+							{' · '}
+							<Link href="/terms-of-service" className="hover:text-[white]/65 mx-1">
+								Terms of Service
+							</Link>
+							{' · '}
+							<Link href="/cookie-notice" className="hover:text-[white]/65 ml-1">
+								Cookie Notice
+							</Link>
 						</p>
 						<p className="font-antique-legacy text-base font-normal tracking-[-.02em] text-white/50 sm:text-[1.1rem]">
 							&copy; 2026 CLAi. All rights reserved.
 						</p>
 					</div>
-					<div className="flex flex-col gap-6 md:min-w-[420px]">
-						<h2 className="font-mackinac text-2xl font-normal tracking-[-.04em] sm:text-3xl">
+					<div className="flex flex-col md:min-w-[420px]">
+						<h2 className="mb-1 font-mackinac text-2xl font-normal tracking-[-.04em] sm:text-3xl">
 							Join the waitlist
 						</h2>
-						<form className="flex h-14 w-full items-center rounded-full border-[0.5] border-[#e5e5e5]/5 bg-[white]/10 px-2 pr-[4px] shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_18px_40px_rgba(0,0,0,0.18)] backdrop-blur-md sm:h-[64px] sm:pl-3 sm:pr-2">
+						<p className="text-white/50 font-antique-legacy text-base sm:text-[1.1rem]">
+							A full Fashion Intelligence platform is coming.
+						</p>
+						<form className="flex mt-5 h-14 w-full items-center rounded-full border-[0.5] border-[#e5e5e5]/5 bg-[white]/10 px-2 pr-[4px] shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_18px_40px_rgba(0,0,0,0.18)] backdrop-blur-md sm:h-[64px] sm:pl-3 sm:pr-2">
 							<label className="sr-only" htmlFor="footer-email">
 								Email address
 							</label>

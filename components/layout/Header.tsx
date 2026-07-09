@@ -52,7 +52,7 @@ export function Header() {
 								CLAi
 							</span>
 						</Link>
-						<div className="flex shrink-0 items-center gap-2 sm:gap-8">
+						<div className="flex shrink-0 items-center gap-2 sm:gap-2">
 							{user ? (
 								<div className="group relative">
 									<button
@@ -88,13 +88,13 @@ export function Header() {
 									<button
 										type="button"
 										onClick={() => setIsAuthModalOpen(true)}
-										className="font-antique-legacy text-sm font-medium text-white decoration-white/80 transition hover:text-white/80 sm:text-lg"
+										className="flex h-10 items-center whitespace-nowrap rounded-full bg-white/10 text-[#FFFFFF]/50 shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] px-4 text-sm font-medium tracking-[-.02em] sm:h-12 sm:px-6 sm:text-lg"
 									>
 										Login
 									</button>
 									<Link
 										href="/#footer"
-										className="flex h-10 items-center whitespace-nowrap rounded-full bg-[#F47016] px-4 text-sm font-medium tracking-[-.02em] text-white transition hover:bg-[#F47016] focus:outline-none focus:ring-2 focus:ring-[#ffb178] sm:h-12 sm:px-6 sm:text-lg"
+										className="flex h-10 items-center whitespace-nowrap rounded-full bg-[#F47016] px-4 text-sm font-medium tracking-[-.02em] text-white transition hover:bg-[#F47016] sm:h-12 sm:px-6 sm:text-lg"
 									>
 										<span className="sm:hidden">
 											Waitlist
