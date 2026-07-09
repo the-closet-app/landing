@@ -12,6 +12,7 @@ import { Upload } from '@/components/icons/Upload';
 import { Mic } from '@/components/icons/Mic';
 import { useToast } from '@/components/toast/ToastProvider';
 import { getFirebaseAuth } from '@/lib/firebase';
+import Link from 'next/link';
 
 const contextOptions = [
 	{
@@ -672,119 +673,124 @@ export function Ask() {
 
 	function renderComposer(isOverlay: boolean) {
 		return (
-			<form
-				className={
-					isOverlay
-						? 'mx-auto mt-auto flex w-[min(94vw,920px)] shrink-0 flex-col justify-between gap-4 rounded-[26px] border-[0.5] border-[#e5e5e5]/5 bg-[#292929]/50 px-4 py-4 text-left shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] sm:gap-5 sm:rounded-[34px] sm:px-5 sm:py-5'
-						: 'flex w-full min-h-[180px] flex-col justify-between gap-4 rounded-[26px] border-[0.5] border-[#e5e5e5]/5 bg-[#292929]/50 px-4 py-4 text-left shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] sm:gap-5 sm:rounded-[34px] sm:px-6 sm:py-6'
-				}
-				onSubmit={handleSubmit}
-			>
-				<div className="flex min-w-0 items-start gap-3 px-1 py-1 sm:gap-5 sm:px-2">
-					<ClaiMark className="mt-[0.2rem] h-5 w-[22px] shrink-0 text-[#787878] sm:h-6 sm:w-[26px]" />
-					<label className="sr-only" htmlFor="ask-clai-prompt">
-						Ask CLAi prompt for {activeOption.label}
-					</label>
-					<div className="relative min-w-0 flex-1">
-						{!promptValue &&
-						(hasStartedChat || !isPromptFocused || isListening) ? (
-							<p
-								className="pointer-events-none absolute left-0 top-0 pr-2 text-base font-medium leading-relaxed tracking-[-.02em] text-white/45 sm:text-[1.1rem]"
-								aria-hidden="true"
-							>
-								{overlayPlaceholder}
-								{isListening || !hasStartedChat ? (
-									<span className="ml-0.5 animate-pulse text-white/55">
-										_
-									</span>
-								) : null}
-							</p>
-						) : null}
-						<textarea
-							id="ask-clai-prompt"
-							value={promptValue}
-							onFocus={() => setIsPromptFocused(true)}
-							onBlur={handlePromptBlur}
-							onChange={(event) =>
-								setPromptValue(event.target.value)
-							}
-							key={activeOption.id}
-							rows={isOverlay ? 1 : 2}
-							className="w-full resize-none bg-transparent text-base font-medium leading-[1.3] tracking-[-.02em] text-[white]/75 outline-none placeholder:text-white/45 sm:text-[1.1rem]"
-						/>
-					</div>
-				</div>
-				<div className="flex flex-wrap items-center justify-end gap-2 sm:flex-nowrap sm:justify-between sm:gap-3">
-					<div className="flex min-w-0 flex-1 items-center">
-						{selectedImage ? (
-							<div className="relative size-11 shrink-0">
-								<img
-									src={selectedImage.previewUrl}
-									alt=""
-									className="size-11 rounded-[10px] border border-white/15 object-cover"
-								/>
-								<button
-									type="button"
-									onClick={handleImageRemove}
-									className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-[#1C1C1C] text-xs leading-none text-white shadow-[0_2px_8px_rgba(0,0,0,0.25)] transition hover:bg-[#F47016]"
-									aria-label="Remove selected image"
-									title="Remove selected image"
+			<>
+				<form
+					className={
+						isOverlay
+							? 'mx-auto mt-auto flex w-[min(94vw,920px)] shrink-0 flex-col justify-between gap-4 rounded-[26px] border-[0.5] border-[#e5e5e5]/5 bg-[#292929]/50 px-4 py-4 text-left shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] sm:gap-5 sm:rounded-[34px] sm:px-5 sm:py-5'
+							: 'flex w-full min-h-[180px] flex-col justify-between gap-4 rounded-[26px] border-[0.5] border-[#e5e5e5]/5 bg-[#292929]/50 px-4 py-4 text-left shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] sm:gap-5 sm:rounded-[34px] sm:px-6 sm:py-6'
+					}
+					onSubmit={handleSubmit}
+				>
+					<div className="flex min-w-0 items-start gap-3 px-1 py-1 sm:gap-5 sm:px-2">
+						<ClaiMark className="mt-[0.2rem] h-5 w-[22px] shrink-0 text-[#787878] sm:h-6 sm:w-[26px]" />
+						<label className="sr-only" htmlFor="ask-clai-prompt">
+							Ask CLAi prompt for {activeOption.label}
+						</label>
+						<div className="relative min-w-0 flex-1">
+							{!promptValue &&
+							(hasStartedChat || !isPromptFocused || isListening) ? (
+								<p
+									className="pointer-events-none absolute left-0 top-0 pr-2 text-base font-medium leading-relaxed tracking-[-.02em] text-white/45 sm:text-[1.1rem]"
+									aria-hidden="true"
 								>
-									×
-								</button>
-							</div>
-						) : null}
+									{overlayPlaceholder}
+									{isListening || !hasStartedChat ? (
+										<span className="ml-0.5 animate-pulse text-white/55">
+											_
+										</span>
+									) : null}
+								</p>
+							) : null}
+							<textarea
+								id="ask-clai-prompt"
+								value={promptValue}
+								onFocus={() => setIsPromptFocused(true)}
+								onBlur={handlePromptBlur}
+								onChange={(event) =>
+									setPromptValue(event.target.value)
+								}
+								key={activeOption.id}
+								rows={isOverlay ? 1 : 2}
+								className="w-full resize-none bg-transparent text-base font-medium leading-[1.3] tracking-[-.02em] text-[white]/75 outline-none placeholder:text-white/45 sm:text-[1.1rem]"
+							/>
+						</div>
 					</div>
-					<button
-						type="button"
-						onClick={handleSpeechToggle}
-						disabled={!isSpeechSupported}
-						className={`shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] grid size-11 place-items-center rounded-full bg-white/10 transition focus:outline-none sm:size-12 ${
-							!isSpeechSupported
-								? 'cursor-not-allowed opacity-40'
-								: ''
-						}`}
-						aria-label="Speak to Ask CLAi"
-						aria-pressed={isListening}
-						title={
-							isSpeechSupported
-								? isListening
-									? 'Stop voice input'
-									: 'Start voice input'
-								: 'Speech input is not supported in this browser'
-						}
-					>
-						<Mic
-							className={`transition-colors duration-300 ${
-								isListening ? 'mic-listening' : 'text-[#787878]'
+					<div className="flex flex-wrap items-center justify-end gap-2 sm:flex-nowrap sm:justify-between sm:gap-3">
+						<div className="flex min-w-0 flex-1 items-center">
+							{selectedImage ? (
+								<div className="relative size-11 shrink-0">
+									<img
+										src={selectedImage.previewUrl}
+										alt=""
+										className="size-11 rounded-[10px] border border-white/15 object-cover"
+									/>
+									<button
+										type="button"
+										onClick={handleImageRemove}
+										className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-[#1C1C1C] text-xs leading-none text-white shadow-[0_2px_8px_rgba(0,0,0,0.25)] transition hover:bg-[#F47016]"
+										aria-label="Remove selected image"
+										title="Remove selected image"
+									>
+										×
+									</button>
+								</div>
+							) : null}
+						</div>
+						<button
+							type="button"
+							onClick={handleSpeechToggle}
+							disabled={!isSpeechSupported}
+							className={`shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] grid size-11 place-items-center rounded-full bg-white/10 transition focus:outline-none sm:size-12 ${
+								!isSpeechSupported
+									? 'cursor-not-allowed opacity-40'
+									: ''
 							}`}
+							aria-label="Speak to Ask CLAi"
+							aria-pressed={isListening}
+							title={
+								isSpeechSupported
+									? isListening
+										? 'Stop voice input'
+										: 'Start voice input'
+									: 'Speech input is not supported in this browser'
+							}
+						>
+							<Mic
+								className={`transition-colors duration-300 ${
+									isListening ? 'mic-listening' : 'text-[#787878]'
+								}`}
+							/>
+						</button>
+						<button
+							type="button"
+							onClick={handleImageButtonClick}
+							className="shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] grid size-11 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/10 focus:outline-none sm:size-12"
+							aria-label="Add an outfit image"
+						>
+							<Upload />
+						</button>
+						<input
+							ref={imageInputRef}
+							type="file"
+							accept="image/jpeg,image/png,image/webp"
+							className="hidden"
+							onChange={handleImageChange}
 						/>
-					</button>
-					<button
-						type="button"
-						onClick={handleImageButtonClick}
-						className="shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] grid size-11 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/10 focus:outline-none sm:size-12"
-						aria-label="Add an outfit image"
-					>
-						<Upload />
-					</button>
-					<input
-						ref={imageInputRef}
-						type="file"
-						accept="image/jpeg,image/png,image/webp"
-						className="hidden"
-						onChange={handleImageChange}
-					/>
-					<button
-						type="submit"
-						data-testid="ask-clai-submit"
-						disabled={isSubmitting}
-						className="h-11 rounded-full bg-[#F47016] px-5 text-sm font-medium tracking-[-.02em] text-white transition hover:bg-[#F47016] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:h-12 sm:px-7 sm:text-lg"
-					>
-						{isSubmitting ? 'Asking...' : 'Ask CLAi'}
-					</button>
-				</div>
-			</form>
+						<button
+							type="submit"
+							data-testid="ask-clai-submit"
+							disabled={isSubmitting}
+							className="h-11 rounded-full bg-[#F47016] px-5 text-sm font-medium tracking-[-.02em] text-white transition hover:bg-[#F47016] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:h-12 sm:px-7 sm:text-lg"
+						>
+							{isSubmitting ? 'Asking...' : 'Ask CLAi'}
+						</button>
+					</div>
+				</form>
+				<p className="font-antique-legacy text-base font-medium leading-[1.45] tracking-[-.02em] text-white/50 sm:text-[1.1rem]"> 
+					Share your feedback <Link href="https://docs.google.com/forms/d/e/1FAIpQLSe7TKRdTqlKw7bIA2wAEukMCemsdVtyrjHBPaSqNjKqGBCAiQ/viewform?usp=preview" className="text-[#F47016]/70" target="_blank">here</Link> 🙏.
+				</p>
+			</>
 		);
 	}
 
