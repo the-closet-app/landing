@@ -8,6 +8,7 @@ import { WaitlistContent } from '@/components/waitlist/WaitlistContent';
 type WaitlistModalProps = {
 	isOpen: boolean;
 	onClose: () => void;
+	variant?: 'dark' | 'light';
 };
 
 function subscribeToClient() {
@@ -22,7 +23,11 @@ function getServerSnapshot() {
 	return false;
 }
 
-export function WaitlistModal({ isOpen, onClose }: WaitlistModalProps) {
+export function WaitlistModal({
+	isOpen,
+	onClose,
+	variant = 'dark',
+}: WaitlistModalProps) {
 	const isMounted = useSyncExternalStore(
 		subscribeToClient,
 		getClientSnapshot,
@@ -64,23 +69,36 @@ export function WaitlistModal({ isOpen, onClose }: WaitlistModalProps) {
 		return null;
 	}
 
+	const isLight = variant === 'light';
+
 	return createPortal(
 		<div
 			aria-labelledby="waitlist-modal-title"
 			aria-modal="true"
-			className="fixed inset-0 z-[2147483646] flex h-dvh items-center justify-center overflow-y-auto bg-[#1C1C1C]/95 px-3 py-4 text-white backdrop-blur-sm sm:px-4"
+			className={`fixed inset-0 z-[2147483646] flex h-dvh items-center justify-center overflow-y-auto px-3 py-4 backdrop-blur-sm sm:px-4 ${
+				isLight
+					? 'bg-white/82 text-[#1C1C1C]'
+					: 'bg-[#1C1C1C]/95 text-white'
+			}`}
 			role="dialog"
 		>
 			<button
 				aria-label="Close waitlist modal"
-				className="absolute right-5 top-5 grid size-8 place-items-center rounded-full bg-white/10 text-xl leading-none text-white/70 transition hover:bg-white/15 hover:text-white"
+				className={`absolute right-5 top-5 grid size-8 place-items-center rounded-full text-xl leading-none transition ${
+					isLight
+						? 'bg-[#1C1C1C]/10 text-[#1C1C1C]/70 hover:bg-[#1C1C1C]/15 hover:text-[#1C1C1C]'
+						: 'bg-white/10 text-white/70 hover:bg-white/15 hover:text-white'
+				}`}
 				onClick={onClose}
 				type="button"
 			>
 				×
 			</button>
 			<div className="w-full max-w-[1280px]" id="waitlist-modal-title">
-				<WaitlistContent emailInputId="waitlist-modal-email" />
+				<WaitlistContent
+					emailInputId="waitlist-modal-email"
+					variant={variant}
+				/>
 			</div>
 		</div>,
 		document.body

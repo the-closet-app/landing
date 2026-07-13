@@ -8,7 +8,7 @@ export function Upload({ className }: ImageIconProps) {
 			className={className ?? 'size-5'}
 			viewBox="0 0 24 24"
 			fill="none"
-			stroke="#787878"
+			stroke="currentColor"
 			strokeWidth="1.8"
 			strokeLinecap="round"
 			strokeLinejoin="round"

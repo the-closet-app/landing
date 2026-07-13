@@ -2,7 +2,7 @@
 
 :root {
 	--background: #1c1c1c;
-	--foreground: #171717;
+	--foreground: #ededed;
 }
 
 .font-mackinac {
@@ -11,13 +11,6 @@
 
 .font-antique-legacy {
 	font-family: var(--font-antique-legacy), sans-serif;
-}
-
-@media (prefers-color-scheme: dark) {
-	:root {
-		--background: #0a0a0a;
-		--foreground: #ededed;
-	}
 }
 
 body {
@@ -126,28 +119,4 @@ textarea:-webkit-autofill:focus {
 
 .scrollbar-none::-webkit-scrollbar {
 	display: none;
-}
-
-footer {
-	background-image: url('/clai_footer_back.webp');
-	background-size: cover;
-	background-position: center;
-	background-repeat: no-repeat;
-	position: relative;
-}
-
-footer::before {
-	content: '';
-	position: absolute;
-	width: 100%;
-	height: 100%;
-	background: linear-gradient(
-		180deg,
-		rgba(28, 28, 28, 1) 0%,
-		rgba(28, 28, 28, 0.95) 25%,
-		rgba(28, 28, 28, 0.75),
-		rgba(28, 28, 28, 0) 100%
-	);
-
-	z-index: 1;
 }

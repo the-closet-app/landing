@@ -22,6 +22,7 @@ import { ClaiMark } from '../icons/ClaiMark';
 type AuthModalProps = {
 	isOpen: boolean;
 	onClose: () => void;
+	variant?: 'dark' | 'light';
 };
 
 function subscribeToClient() {
@@ -82,8 +83,13 @@ function getAuthErrorMessage(error: unknown) {
 	return 'Something went wrong. Please try again.';
 }
 
-export function AuthModal({ isOpen, onClose }: AuthModalProps) {
+export function AuthModal({
+	isOpen,
+	onClose,
+	variant = 'dark',
+}: AuthModalProps) {
 	const toast = useToast();
+	const isLight = variant === 'light';
 	const [name, setName] = useState('');
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
@@ -144,6 +150,16 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 	if (!isOpen || !isMounted) {
 		return null;
 	}
+
+	const modalTextColor = isLight ? 'text-[#1C1C1C]' : 'text-white';
+	const mutedLinkColor = isLight
+		? 'text-[#1C1C1C]/45 hover:text-[#1C1C1C]/70'
+		: 'text-white/30 hover:text-white/50';
+	const inputClassName = `h-[52px] rounded-full px-6 font-antique-legacy text-base outline-none transition sm:h-14 sm:px-8 sm:text-[1.1rem] ${
+		isLight
+			? 'bg-[#1C1C1C]/5 text-[#1C1C1C] placeholder:text-[#1C1C1C]/35'
+			: 'bg-white/10 text-white placeholder:text-white/35'
+	}`;
 
 	async function handleEmailLogin(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -224,7 +240,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
 	return createPortal(
 		<div
-			className="fixed inset-0 z-[2147483646] flex h-dvh w-dvw items-center justify-center overflow-y-auto bg-[#1C1C1C]/95 px-3 py-4 backdrop-blur-sm sm:px-4"
+			className={`fixed inset-0 z-[2147483646] flex h-dvh w-dvw items-center justify-center overflow-y-auto px-3 py-4 backdrop-blur-sm sm:px-4 ${
+				isLight ? 'bg-white/82' : 'bg-[#1C1C1C]/95'
+			}`}
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="auth-modal-title"
@@ -235,11 +253,17 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 				aria-label="Close login modal"
 				onClick={onClose}
 			/>
-			<div className="relative my-auto w-full max-w-[420px] rounded-[28px] bg-[#292929] p-6 text-white sm:rounded-[34px] sm:p-10">
+			<div
+				className={`relative my-auto w-full max-w-[420px] rounded-[28px] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.18)] sm:rounded-[34px] sm:p-10 ${
+					isLight
+						? 'bg-white text-[#1C1C1C]'
+						: 'bg-[#292929] text-white'
+				}`}
+			>
 				<div className="mb-8 flex items-center justify-between gap-4 sm:mb-10 sm:gap-6">
 					<h2
 						id="auth-modal-title"
-						className="m-auto flex items-center gap-3 text-center font-mackinac text-3xl font-normal tracking-[-.04em] text-white sm:text-4xl"
+						className={`m-auto flex items-center gap-3 text-center font-mackinac text-3xl font-normal tracking-[-.04em] sm:text-4xl ${modalTextColor}`}
 					>
 						<ClaiMark className="h-8 w-9 shrink-0 text-[#D88435] sm:h-8 sm:w-8" />
 						<span className="font-mackinac text-3xl font-normal leading-none sm:text-4xl">
@@ -272,7 +296,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 									setName(event.target.value)
 								}
 								required
-								className="h-[52px] rounded-full bg-white/10 px-6 font-antique-legacy text-base text-white outline-none transition placeholder:text-white/35 sm:h-14 sm:px-8 sm:text-[1.1rem]"
+								className={inputClassName}
 								placeholder="Your name"
 							/>
 						</label>
@@ -283,7 +307,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 							value={email}
 							onChange={(event) => setEmail(event.target.value)}
 							required
-							className="h-[52px] rounded-full bg-white/10 px-6 font-antique-legacy text-base text-white outline-none transition placeholder:text-white/35 sm:h-14 sm:px-8 sm:text-[1.1rem]"
+							className={inputClassName}
 							placeholder="you@example.com"
 						/>
 					</label>
@@ -296,7 +320,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 									setPassword(event.target.value)
 								}
 								required
-								className="h-[52px] rounded-full bg-white/10 px-6 font-antique-legacy text-base text-white outline-none transition placeholder:text-white/35 sm:h-14 sm:px-8 sm:text-[1.1rem]"
+								className={inputClassName}
 								placeholder="Your password"
 							/>
 						</label>
@@ -334,7 +358,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 							onClick={() => {
 								setAuthMode('reset');
 							}}
-							className="text-white/30 transition hover:text-white/50"
+							className={`transition ${mutedLinkColor}`}
 						>
 							Forgot password?
 						</button>
@@ -350,7 +374,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 								return 'signup';
 							});
 						}}
-						className="text-white/30 transition hover:text-white/50"
+						className={`transition ${mutedLinkColor}`}
 					>
 						{authMode === 'signup'
 							? 'Already have an account? Login'
@@ -362,19 +386,35 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
 				{authMode !== 'reset' ? (
 					<>
-						<div className="my-6 flex items-center gap-3 text-white/35">
-							<div className="h-px flex-1 bg-white/10" />
+						<div
+							className={`my-6 flex items-center gap-3 ${
+								isLight ? 'text-[#1C1C1C]/35' : 'text-white/35'
+							}`}
+						>
+							<div
+								className={`h-px flex-1 ${
+									isLight ? 'bg-[#1C1C1C]/10' : 'bg-white/10'
+								}`}
+							/>
 							<span className="font-antique-legacy text-base sm:text-[1.1rem]">
 								or
 							</span>
-							<div className="h-px flex-1 bg-white/10" />
+							<div
+								className={`h-px flex-1 ${
+									isLight ? 'bg-[#1C1C1C]/10' : 'bg-white/10'
+								}`}
+							/>
 						</div>
 
 						<button
 							type="button"
 							onClick={handleGoogleLogin}
 							disabled={isSubmitting}
-							className="flex h-[52px] w-full items-center justify-center gap-3 rounded-full border border-[#e5e5e5]/10 bg-white text-base font-medium tracking-[-.02em] text-[#1C1C1C] transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60 sm:h-14 sm:text-[1.1rem]"
+							className={`flex h-[52px] w-full items-center justify-center gap-3 rounded-full text-base font-medium tracking-[-.02em] transition disabled:cursor-not-allowed disabled:opacity-60 sm:h-14 sm:text-[1.1rem] ${
+								isLight
+									? 'bg-[#1C1C1C]/5 text-[#1C1C1C] hover:bg-[#1C1C1C]/10'
+									: 'bg-white text-[#1C1C1C] hover:bg-white/90'
+							}`}
 						>
 							<GoogleIcon className="size-6 shrink-0" />
 							Continue with Google

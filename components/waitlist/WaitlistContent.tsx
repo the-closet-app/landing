@@ -2,20 +2,40 @@ import Image from 'next/image';
 
 type WaitlistContentProps = {
 	emailInputId: string;
+	variant?: 'dark' | 'light';
 };
 
-export function WaitlistContent({ emailInputId }: WaitlistContentProps) {
+export function WaitlistContent({
+	emailInputId,
+	variant = 'dark',
+}: WaitlistContentProps) {
+	const isLight = variant === 'light';
+
 	return (
-		<div className="grid w-full max-w-[1280px] items-center gap-8 rounded-[28px] p-6 sm:rounded-[34px] sm:p-10 md:grid-cols-[minmax(0,1fr)_minmax(320px,520px)] lg:p-12">
-			<div className="flex min-w-0 flex-col px-10 gap-2">
+		<div
+			className={`grid w-full max-w-[1280px] items-center gap-8 rounded-[28px] p-6 sm:rounded-[34px] sm:p-10 md:grid-cols-[minmax(0,1fr)_minmax(320px,520px)] lg:p-12 ${
+				isLight ? 'text-[#1C1C1C]' : 'text-white'
+			}`}
+		>
+			<div className="flex min-w-0 flex-col gap-2 px-10">
 				<h2 className="mb-4 font-mackinac text-2xl font-normal tracking-[-.04em] text-5xl">
 					Join the waitlist
 				</h2>
-				<p className="font-antique-legacy text-base leading-[1.7rem] text-white/50 sm:text-[1.3rem] text-[1.2rem]">
+				<p
+					className={`font-antique-legacy text-base leading-[1.5rem] tracking-[-.02em] sm:text-[1.15rem] text-[1.1rem] ${
+						isLight ? 'text-[#1C1C1C]/60' : 'text-white/50'
+					}`}
+				>
 					Be the first to experience smarter, more personalized
 					styling. Join the waitlist for early access.
 				</p>
-				<form className="mt-5 flex h-14 w-full items-center rounded-full border-[0.5] border-[#e5e5e5]/5 bg-[white]/10 px-2 pr-[4px] shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_18px_40px_rgba(0,0,0,0.18)] backdrop-blur-md sm:h-[64px] sm:pl-3 sm:pr-2">
+				<form
+					className={`mt-5 flex h-14 w-full items-center rounded-full border-[0.5] px-2 pr-[4px] shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_10px_80px_rgba(0,0,0,0.1)] backdrop-blur-md sm:h-[64px] sm:pl-3 sm:pr-2 ${
+						isLight
+							? 'border-[#1C1C1C]/5 bg-[#1C1C1C]/5'
+							: 'border-[#e5e5e5]/5 bg-[white]/10'
+					}`}
+				>
 					<label className="sr-only" htmlFor={emailInputId}>
 						Email address
 					</label>
@@ -23,7 +43,11 @@ export function WaitlistContent({ emailInputId }: WaitlistContentProps) {
 						id={emailInputId}
 						type="email"
 						placeholder="Your email address"
-						className="min-w-0 flex-1 px-3 font-antique-legacy text-base font-normal tracking-[-.03em] text-white outline-none placeholder:text-white/55 sm:px-5 sm:text-[1.1rem]"
+						className={`min-w-0 flex-1 px-3 font-antique-legacy text-base font-normal tracking-[-.03em] outline-none sm:px-5 sm:text-[1.1rem] ${
+							isLight
+								? 'text-[#1C1C1C] placeholder:text-[#1C1C1C]/45'
+								: 'text-white placeholder:text-white/55'
+						}`}
 					/>
 					<button
 						type="submit"

@@ -12,6 +12,7 @@ type ProfileModalProps = {
 	onClose: () => void;
 	onLogout: () => Promise<void>;
 	user: User | null;
+	variant?: 'dark' | 'light';
 };
 
 type DailyUsage = {
@@ -56,8 +57,10 @@ export function ProfileModal({
 	onClose,
 	onLogout,
 	user,
+	variant = 'dark',
 }: ProfileModalProps) {
 	const toast = useToast();
+	const isLight = variant === 'light';
 	const [usage, setUsage] = useState<DailyUsage | null>(null);
 	const [isLoadingUsage, setIsLoadingUsage] = useState(false);
 	const [isSendingVerification, setIsSendingVerification] = useState(false);
@@ -158,6 +161,10 @@ export function ProfileModal({
 		return null;
 	}
 
+	const modalTextColor = isLight ? 'text-[#1C1C1C]' : 'text-white';
+	const labelTextColor = isLight ? 'text-[#1C1C1C]/35' : 'text-white/20';
+	const valueTextColor = isLight ? 'text-[#1C1C1C]/80' : 'text-white/80';
+
 	async function handleResendVerification() {
 		if (!user) {
 			return;
@@ -189,7 +196,9 @@ export function ProfileModal({
 
 	return createPortal(
 		<div
-			className="fixed inset-0 z-[2147483646] flex h-dvh w-dvw items-center justify-center overflow-y-auto bg-[#1C1C1C]/95 px-3 py-4 backdrop-blur-sm sm:px-4"
+			className={`fixed inset-0 z-[2147483646] flex h-dvh w-dvw items-center justify-center overflow-y-auto px-3 py-4 backdrop-blur-sm sm:px-4 ${
+				isLight ? 'bg-white/82' : 'bg-[#1C1C1C]/95'
+			}`}
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="profile-modal-title"
@@ -200,11 +209,17 @@ export function ProfileModal({
 				aria-label="Close profile modal"
 				onClick={onClose}
 			/>
-			<div className="relative my-auto w-full max-w-[420px] rounded-[28px] bg-[#292929] p-6 text-white sm:rounded-[34px] sm:p-10">
+			<div
+				className={`relative my-auto w-full max-w-[420px] rounded-[28px] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.18)] sm:rounded-[34px] sm:p-10 ${
+					isLight
+						? 'bg-white text-[#1C1C1C]'
+						: 'bg-[#292929] text-white'
+				}`}
+			>
 				<div className="mb-8 flex items-center justify-between gap-4 sm:mb-10 sm:gap-6">
 					<h2
 						id="profile-modal-title"
-						className="m-auto flex items-center gap-3 text-center font-mackinac text-3xl font-normal leading-none tracking-[-.04em] text-white sm:text-4xl"
+						className={`m-auto flex items-center gap-3 text-center font-mackinac text-3xl font-normal leading-none tracking-[-.04em] sm:text-4xl ${modalTextColor}`}
 					>
 						<ClaiMark className="h-8 w-9 shrink-0 text-[#D88435] sm:h-8 sm:w-8" />
 						<span>Your Profile</span>
@@ -213,34 +228,50 @@ export function ProfileModal({
 
 				<div className="flex flex-col gap-4 font-antique-legacy">
 					<div>
-						<p className="text-[0.8rem] text-white/20 uppercase tracking-[.08em]">
+						<p
+							className={`text-[0.8rem] uppercase tracking-[.08em] ${labelTextColor}`}
+						>
 							Name
 						</p>
-						<p className="break-words text-base tracking-[-.02em] text-[white]/80 sm:text-[1.1rem]">
+						<p
+							className={`break-words text-base tracking-[-.02em] sm:text-[1.1rem] ${valueTextColor}`}
+						>
 							{getDisplayName(user)}
 						</p>
 					</div>
 					<div>
-						<p className="text-[0.8rem] text-white/20 uppercase tracking-[.08em]">
+						<p
+							className={`text-[0.8rem] uppercase tracking-[.08em] ${labelTextColor}`}
+						>
 							Email
 						</p>
-						<p className="break-all text-base tracking-[-.02em] text-[white]/80 sm:text-[1.1rem]">
+						<p
+							className={`break-all text-base tracking-[-.02em] sm:text-[1.1rem] ${valueTextColor}`}
+						>
 							{user.email}
 						</p>
 					</div>
 					<div>
-						<p className="text-[0.8rem] text-white/20 uppercase tracking-[.08em]">
+						<p
+							className={`text-[0.8rem] uppercase tracking-[.08em] ${labelTextColor}`}
+						>
 							Sign-in method
 						</p>
-						<p className="text-base tracking-[-.02em] text-[white]/80 sm:text-[1.1rem]">
+						<p
+							className={`text-base tracking-[-.02em] sm:text-[1.1rem] ${valueTextColor}`}
+						>
 							{getProviderLabel(user)}
 						</p>
 					</div>
 					<div>
-						<p className="text-[0.8rem] text-white/20 uppercase tracking-[.08em]">
+						<p
+							className={`text-[0.8rem] uppercase tracking-[.08em] ${labelTextColor}`}
+						>
 							Email verification
 						</p>
-						<p className="text-base tracking-[-.02em] text-[white]/80 sm:text-[1.1rem]">
+						<p
+							className={`text-base tracking-[-.02em] sm:text-[1.1rem] ${valueTextColor}`}
+						>
 							{user.emailVerified
 								? 'Verified'
 								: 'Not verified yet'}
@@ -259,17 +290,25 @@ export function ProfileModal({
 						) : null}
 					</div>
 					<div>
-						<p className="text-[0.8rem] text-white/20 uppercase tracking-[.08em]">
+						<p
+							className={`text-[0.8rem] uppercase tracking-[.08em] ${labelTextColor}`}
+						>
 							Daily CLAi messages
 						</p>
-						<p className="text-base tracking-[-.02em] text-[white]/80 sm:text-[1.1rem]">
+						<p
+							className={`text-base tracking-[-.02em] sm:text-[1.1rem] ${valueTextColor}`}
+						>
 							{isLoadingUsage
 								? 'Loading usage...'
 								: usage
 									? `${usage.used} of ${usage.limit} used today`
 									: 'Usage unavailable'}
 						</p>
-						<div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+						<div
+							className={`mt-2 h-2 overflow-hidden rounded-full ${
+								isLight ? 'bg-[#1C1C1C]/10' : 'bg-white/10'
+							}`}
+						>
 							<div
 								className="h-full rounded-full bg-[#F47016] transition-[width]"
 								style={{

@@ -185,8 +185,23 @@ function getChatHistory(messages: ChatMessage[]) {
 		}));
 }
 
-export function Ask() {
+function isOnlyOutOfScopeFashionResponse(content: string) {
+	return (
+		content
+			.replaceAll('*', '')
+			.replace(/\s+/g, ' ')
+			.trim()
+			.toLowerCase() === 'i am clai, i only give fashion advice.'
+	);
+}
+
+type AskProps = {
+	variant?: 'dark' | 'light';
+};
+
+export function Ask({ variant = 'dark' }: AskProps) {
 	const toast = useToast();
+	const isLight = variant === 'light';
 	const [activeContext, setActiveContext] =
 		useState<ContextOption>('consumer');
 	const activeOption =
@@ -671,18 +686,32 @@ export function Ask() {
 	}
 
 	function renderComposer(isOverlay: boolean) {
+		const formClassName = isOverlay
+			? isLight
+				? 'mx-auto mt-auto flex w-[min(94vw,920px)] shrink-0 flex-col justify-between gap-4 rounded-[28px] border border-white/70 bg-white px-4 py-4 text-left shadow-[0_22px_70px_rgba(75,116,178,0.16),inset_0_1px_0_rgba(255,255,255,0.9)] sm:gap-5 sm:rounded-[34px] sm:px-5 sm:py-5'
+				: 'mx-auto mt-auto flex w-[min(94vw,920px)] shrink-0 flex-col justify-between gap-4 rounded-[26px] border-[0.5] border-[#e5e5e5]/5 bg-[#292929]/50 px-4 py-4 text-left shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] sm:gap-5 sm:rounded-[34px] sm:px-5 sm:py-5'
+			: isLight
+				? 'flex min-h-[180px] w-full flex-col justify-between gap-4 rounded-[26px] border border-white/70 bg-white px-4 py-4 text-left shadow-[0_22px_70px_rgba(75,116,178,0.16),inset_0_1px_0_rgba(255,255,255,0.9)] sm:min-h-[180px] sm:gap-5 sm:rounded-[34px] sm:px-6 sm:py-6'
+				: 'flex w-full min-h-[180px] flex-col justify-between gap-4 rounded-[26px] border-[0.5] border-[#e5e5e5]/5 bg-[#292929]/50 px-4 py-4 text-left shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] sm:gap-5 sm:rounded-[34px] sm:px-6 sm:py-6';
+		const placeholderClassName = isLight
+			? 'pointer-events-none absolute left-0 top-0 pr-2 text-base font-medium leading-relaxed tracking-[-.02em] text-[#1C1C1C]/35 sm:text-[1.1rem]'
+			: 'pointer-events-none absolute left-0 top-0 pr-2 text-base font-medium leading-relaxed tracking-[-.02em] text-white/45 sm:text-[1.1rem]';
+		const textareaClassName = isLight
+			? 'w-full resize-none bg-transparent text-base font-medium leading-[1.3] tracking-[-.02em] text-[#1C1C1C]/80 outline-none placeholder:text-[#1C1C1C]/35 sm:text-[1.1rem]'
+			: 'w-full resize-none bg-transparent text-base font-medium leading-[1.3] tracking-[-.02em] text-[white]/75 outline-none placeholder:text-white/45 sm:text-[1.1rem]';
+		const iconButtonClassName = isLight
+			? 'grid size-11 place-items-center rounded-full border border-[#1C1C1C]/10 bg-white text-[#1C1C1C] shadow-[0_12px_28px_rgba(75,116,178,0.10)] transition hover:bg-[#F7F7F7] focus:outline-none sm:size-12'
+			: 'shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] grid size-11 place-items-center rounded-full bg-white/10 transition focus:outline-none sm:size-12';
+
 		return (
 			<>
-				<form
-					className={
-						isOverlay
-							? 'mx-auto mt-auto flex w-[min(94vw,920px)] shrink-0 flex-col justify-between gap-4 rounded-[26px] border-[0.5] border-[#e5e5e5]/5 bg-[#292929]/50 px-4 py-4 text-left shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] sm:gap-5 sm:rounded-[34px] sm:px-5 sm:py-5'
-							: 'flex w-full min-h-[180px] flex-col justify-between gap-4 rounded-[26px] border-[0.5] border-[#e5e5e5]/5 bg-[#292929]/50 px-4 py-4 text-left shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] sm:gap-5 sm:rounded-[34px] sm:px-6 sm:py-6'
-					}
-					onSubmit={handleSubmit}
-				>
+				<form className={formClassName} onSubmit={handleSubmit}>
 					<div className="flex min-w-0 items-start gap-3 px-1 py-1 sm:gap-5 sm:px-2">
-						<ClaiMark className="mt-[0.2rem] h-5 w-[22px] shrink-0 text-[#787878] sm:h-6 sm:w-[26px]" />
+						<ClaiMark
+							className={`mt-[0.2rem] h-5 w-[22px] shrink-0 sm:h-6 sm:w-[26px] ${
+								isLight ? 'text-[#F47016]' : 'text-[#787878]'
+							}`}
+						/>
 						<label className="sr-only" htmlFor="ask-clai-prompt">
 							Ask CLAi prompt for {activeOption.label}
 						</label>
@@ -692,12 +721,18 @@ export function Ask() {
 								!isPromptFocused ||
 								isListening) ? (
 								<p
-									className="pointer-events-none absolute left-0 top-0 pr-2 text-base font-medium leading-relaxed tracking-[-.02em] text-white/45 sm:text-[1.1rem]"
+									className={placeholderClassName}
 									aria-hidden="true"
 								>
 									{overlayPlaceholder}
 									{isListening || !hasStartedChat ? (
-										<span className="ml-0.5 animate-pulse text-white/55">
+										<span
+											className={`ml-0.5 animate-pulse ${
+												isLight
+													? 'text-[#1C1C1C]/40'
+													: 'text-white/55'
+											}`}
+										>
 											_
 										</span>
 									) : null}
@@ -713,7 +748,7 @@ export function Ask() {
 								}
 								key={activeOption.id}
 								rows={isOverlay ? 1 : 2}
-								className="w-full resize-none bg-transparent text-base font-medium leading-[1.3] tracking-[-.02em] text-[white]/75 outline-none placeholder:text-white/45 sm:text-[1.1rem]"
+								className={textareaClassName}
 							/>
 						</div>
 					</div>
@@ -742,7 +777,7 @@ export function Ask() {
 							type="button"
 							onClick={handleSpeechToggle}
 							disabled={!isSpeechSupported}
-							className={`shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] grid size-11 place-items-center rounded-full bg-white/10 transition focus:outline-none sm:size-12 ${
+							className={`${iconButtonClassName} ${
 								!isSpeechSupported
 									? 'cursor-not-allowed opacity-40'
 									: ''
@@ -761,17 +796,25 @@ export function Ask() {
 								className={`transition-colors duration-300 ${
 									isListening
 										? 'mic-listening'
-										: 'text-[#787878]'
+										: isLight
+											? 'text-[#1C1C1C]'
+											: 'text-[#787878]'
 								}`}
 							/>
 						</button>
 						<button
 							type="button"
 							onClick={handleImageButtonClick}
-							className="shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] grid size-11 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/10 focus:outline-none sm:size-12"
+							className={iconButtonClassName}
 							aria-label="Add an outfit image"
 						>
-							<Upload />
+							<Upload
+								className={
+									isLight
+										? 'size-5 text-[#1C1C1C]'
+										: 'size-5 text-[#787878]'
+								}
+							/>
 						</button>
 						<input
 							ref={imageInputRef}
@@ -784,15 +827,16 @@ export function Ask() {
 							type="submit"
 							data-testid="ask-clai-submit"
 							disabled={isSubmitting}
-							className="h-11 rounded-full bg-[#F47016] px-5 text-sm font-medium tracking-[-.02em] text-white transition hover:bg-[#F47016] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:h-12 sm:px-7 sm:text-lg"
+							className={`h-11 rounded-full px-5 text-sm font-medium tracking-[-.02em] transition focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:h-12 sm:px-7 sm:text-lg ${
+								isLight
+									? 'bg-[#1C1C1C] text-white hover:bg-[#2A2A2A]'
+									: 'bg-[#F47016] text-white hover:bg-[#F47016]'
+							}`}
 						>
 							{isSubmitting ? 'Asking...' : 'Ask CLAi'}
 						</button>
 					</div>
 				</form>
-				<p className="font-antique-legacy text-base font-medium leading-[1.45] tracking-[-.02em] text-white/50 sm:text-[1.1rem]">
-					Better fashion decision starts here.
-				</p>
 			</>
 		);
 	}
@@ -802,8 +846,15 @@ export function Ask() {
 			? createPortal(
 					<div
 						data-testid="ask-chat-overlay"
-						className="fixed left-0 top-0 z-[2147483646] flex h-dvh w-dvw flex-col overflow-hidden bg-[#1C1C1C] px-3 py-4 text-left sm:px-8 sm:py-4"
+						className={`fixed left-0 top-0 z-[2147483646] flex h-dvh w-dvw flex-col overflow-hidden px-3 py-4 text-left sm:px-8 sm:py-4 ${
+							isLight
+								? 'bg-[linear-gradient(135deg,#4EA0D9_0%,#92B9DF_42%,#E8D5E6_100%)]'
+								: 'bg-[#1C1C1C]'
+						}`}
 					>
+						{isLight ? (
+							<div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_22%,rgba(255,255,255,0.18),transparent_28%),radial-gradient(circle_at_76%_46%,rgba(255,255,255,0.16),transparent_30%)]" />
+						) : null}
 						<div className="absolute right-4 top-4 z-10 sm:right-8 sm:top-7">
 							<button
 								type="button"
@@ -811,7 +862,11 @@ export function Ask() {
 									event.stopPropagation();
 									handleChatClose();
 								}}
-								className="grid size-8 place-items-center rounded-full bg-white/10 pb-1 text-[1.2em] leading-none text-white/70 transition hover:bg-white/15 hover:text-white"
+								className={`grid size-8 place-items-center rounded-full pb-1 text-[1.2em] leading-none transition ${
+									isLight
+										? 'bg-white/25 text-white hover:bg-white/35'
+										: 'bg-white/10 text-white/70 hover:bg-white/15 hover:text-white'
+								}`}
 								aria-label="Close Ask CLAi chat"
 								title="Close Ask CLAi chat"
 							>
@@ -834,8 +889,12 @@ export function Ask() {
 									<article
 										className={`font-antique-legacy text-base font-medium sm:text-[1.1rem] ${
 											message.role === 'user'
-												? 'w-auto max-w-[86%] rounded-[22px] bg-white/10 px-4 py-3 leading-[1.3] text-white/70 backdrop-blur-[10px] sm:max-w-[50%]'
-												: 'w-full text-[white]/70 leading-[1.3]'
+												? isLight
+													? 'w-auto max-w-[86%] rounded-[22px] bg-white/35 px-4 py-3 leading-[1.3] text-white backdrop-blur-[10px] sm:max-w-[50%]'
+													: 'w-auto max-w-[86%] rounded-[22px] bg-white/10 px-4 py-3 leading-[1.3] text-white/70 backdrop-blur-[10px] sm:max-w-[50%]'
+												: isLight
+													? 'w-full text-white leading-[1.3]'
+													: 'w-full text-[white]/70 leading-[1.3]'
 										}`}
 									>
 										{message.imagePreviewUrl ? (
@@ -868,17 +927,35 @@ export function Ask() {
 														</strong>
 													),
 													h1: ({ children }) => (
-														<p className="mb-2 mt-4 text-lg font-medium text-[white]/70 first:mt-0">
+														<p
+															className={`mb-2 mt-4 text-lg font-medium first:mt-0 ${
+																isLight
+																	? 'text-white'
+																	: 'text-[white]/70'
+															}`}
+														>
 															{children}
 														</p>
 													),
 													h2: ({ children }) => (
-														<p className="mb-2 mt-4 text-base font-medium text-[white]/70 first:mt-0">
+														<p
+															className={`mb-2 mt-4 text-base font-medium first:mt-0 ${
+																isLight
+																	? 'text-white'
+																	: 'text-[white]/70'
+															}`}
+														>
 															{children}
 														</p>
 													),
 													h3: ({ children }) => (
-														<p className="mb-2 mt-4 font-medium text-[white]/70 first:mt-0">
+														<p
+															className={`mb-2 mt-4 font-medium first:mt-0 ${
+																isLight
+																	? 'text-white'
+																	: 'text-[white]/70'
+															}`}
+														>
 															{children}
 														</p>
 													),
@@ -913,6 +990,9 @@ export function Ask() {
 										{message.role === 'assistant' &&
 										message.content !==
 											'CLAi is thinking...' &&
+										!isOnlyOutOfScopeFashionResponse(
+											message.content
+										) &&
 										!message.generatedImageUrl ? (
 											<button
 												type="button"
@@ -925,7 +1005,11 @@ export function Ask() {
 													generatingLookForMessageId !==
 													null
 												}
-												className={`mt-5 rounded-full py-2 text-[1em] font-medium text-white/20 hover:text-white/40 transition disabled:cursor-not-allowed disabled:opacity-40 ${
+												className={`mt-5 rounded-full py-2 text-[1em] font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${
+													isLight
+														? 'text-white/65 hover:text-white'
+														: 'text-white/20 hover:text-white/40'
+												} ${
 													generatingLookForMessageId ===
 													message.id
 														? 'animate-pulse'
@@ -951,7 +1035,11 @@ export function Ask() {
 	return (
 		<div className="z-10 mt-6 flex w-full flex-col items-center gap-5 sm:mt-10 sm:gap-6">
 			<div
-				className="border-1 grid h-14 w-[min(90vw,280px)] grid-cols-2 rounded-full border-[#e5e5e5]/5 bg-white/10 p-[0.25rem] font-antique-legacy font-medium text-white/45 backdrop-blur-[10px] sm:h-[52px] sm:text-base"
+				className={`border-1 grid h-14 w-[min(90vw,280px)] grid-cols-2 rounded-full p-[0.25rem] font-antique-legacy font-medium backdrop-blur-[10px] sm:h-[52px] sm:text-base ${
+					isLight
+						? 'border-white/25 bg-white/20 text-white/80'
+						: 'border-[#e5e5e5]/5 bg-white/10 text-white/45'
+				}`}
 				aria-label="Ask CLAi context"
 			>
 				{contextOptions.map((option) => {
@@ -965,7 +1053,9 @@ export function Ask() {
 							className={`rounded-full text-base tracking-[-.04em] transition duration-200 sm:text-[1.1rem] ${
 								isActive
 									? 'bg-[#E0E0E0] text-[#1C1C1C] shadow-[inset_0_2px_2px_0_#FFF,0_0_12px_0_rgba(0,0,0,0.10)]'
-									: 'text-[#787878] hover:text-white/75'
+									: isLight
+										? 'text-white/80 hover:text-white'
+										: 'text-[#787878] hover:text-white/75'
 							}`}
 							aria-pressed={isActive}
 						>
@@ -979,6 +1069,7 @@ export function Ask() {
 			<AuthModal
 				isOpen={isAuthModalOpen}
 				onClose={() => setIsAuthModalOpen(false)}
+				variant={variant}
 			/>
 		</div>
 	);
