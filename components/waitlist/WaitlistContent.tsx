@@ -1,4 +1,17 @@
+'use client';
+
+import {
+	doc,
+	getDoc,
+	serverTimestamp,
+	setDoc,
+	type DocumentData,
+} from 'firebase/firestore';
 import Image from 'next/image';
+import { FormEvent, useState } from 'react';
+
+import { useToast } from '@/components/toast/ToastProvider';
+import { getFirebaseDb } from '@/lib/firebase';
 
 type WaitlistContentProps = {
 	emailInputId: string;
@@ -9,7 +22,51 @@ export function WaitlistContent({
 	emailInputId,
 	variant = 'dark',
 }: WaitlistContentProps) {
+	const toast = useToast();
 	const isLight = variant === 'light';
+	const [email, setEmail] = useState('');
+	const [isSubmitting, setIsSubmitting] = useState(false);
+
+	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+
+		const normalizedEmail = email.trim().toLowerCase();
+
+		if (!normalizedEmail) {
+			toast.info('Enter your email address to join the waitlist.');
+			return;
+		}
+
+		setIsSubmitting(true);
+
+		try {
+			const waitlistRef = doc(
+				getFirebaseDb(),
+				'claiWaitlist',
+				encodeURIComponent(normalizedEmail)
+			);
+			const existingEntry = await getDoc(waitlistRef);
+			const waitlistData: DocumentData = {
+				email: normalizedEmail,
+				source: 'landing_waitlist',
+				status: 'joined',
+				updatedAt: serverTimestamp(),
+			};
+
+			if (!existingEntry.exists()) {
+				waitlistData.createdAt = serverTimestamp();
+			}
+
+			await setDoc(waitlistRef, waitlistData, { merge: true });
+			setEmail('');
+			toast.success("You're on the CLAi waitlist.");
+		} catch (error) {
+			console.error(error);
+			toast.error('Unable to join the waitlist right now.');
+		} finally {
+			setIsSubmitting(false);
+		}
+	}
 
 	return (
 		<div
@@ -30,6 +87,7 @@ export function WaitlistContent({
 					styling. Join the waitlist for early access.
 				</p>
 				<form
+					onSubmit={handleSubmit}
 					className={`mt-5 flex h-14 w-full items-center rounded-full border-[0.5] px-2 pr-[4px] shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_10px_80px_rgba(0,0,0,0.1)] backdrop-blur-md sm:h-[64px] sm:pl-3 sm:pr-2 ${
 						isLight
 							? 'border-[#1C1C1C]/5 bg-[#1C1C1C]/5'
@@ -42,7 +100,10 @@ export function WaitlistContent({
 					<input
 						id={emailInputId}
 						type="email"
+						value={email}
+						onChange={(event) => setEmail(event.target.value)}
 						placeholder="Your email address"
+						autoComplete="email"
 						className={`min-w-0 flex-1 px-3 font-antique-legacy text-base font-normal tracking-[-.03em] outline-none sm:px-5 sm:text-[1.1rem] ${
 							isLight
 								? 'text-[#1C1C1C] placeholder:text-[#1C1C1C]/45'
@@ -51,10 +112,12 @@ export function WaitlistContent({
 					/>
 					<button
 						type="submit"
-						className="grid size-11 shrink-0 place-items-center rounded-full bg-[#F47016] text-white transition hover:bg-[#E19245] focus:outline-none focus:ring-2 focus:ring-[#F4B77B] sm:size-12"
+						disabled={isSubmitting}
+						className="grid size-11 shrink-0 place-items-center rounded-full bg-[#F47016] text-white transition hover:bg-[#E19245] focus:outline-none focus:ring-2 focus:ring-[#F4B77B] disabled:cursor-not-allowed disabled:opacity-60 sm:size-12"
 						aria-label="Join waitlist"
 					>
 						<svg
+							className={isSubmitting ? 'animate-pulse' : ''}
 							width="28"
 							height="28"
 							viewBox="0 0 28 28"
