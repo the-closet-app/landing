@@ -10,6 +10,7 @@ import { ClaiMark } from '@/components/icons/ClaiMark';
 import { LogoutIcon } from '@/components/icons/LogoutIcon';
 import { ProfileIcon } from '@/components/icons/ProfileIcon';
 import { useToast } from '@/components/toast/ToastProvider';
+import { WaitlistModal } from '@/components/waitlist/WaitlistModal';
 import { getFirebaseAuth } from '@/lib/firebase';
 
 function getUserInitial(user: User) {
@@ -22,6 +23,7 @@ export function Header() {
 	const toast = useToast();
 	const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 	const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+	const [isWaitlistModalOpen, setIsWaitlistModalOpen] = useState(false);
 	const [user, setUser] = useState<User | null>(null);
 
 	useEffect(() => {
@@ -92,8 +94,11 @@ export function Header() {
 									>
 										Login
 									</button>
-									<Link
-										href="/#footer"
+									<button
+										type="button"
+										onClick={() =>
+											setIsWaitlistModalOpen(true)
+										}
 										className="flex h-10 items-center whitespace-nowrap rounded-full bg-[#F47016] px-4 text-sm font-medium tracking-[-.02em] text-white transition hover:bg-[#F47016] sm:h-12 sm:px-6 sm:text-lg"
 									>
 										<span className="sm:hidden">
@@ -102,7 +107,7 @@ export function Header() {
 										<span className="hidden sm:inline">
 											Join the waitlist
 										</span>
-									</Link>
+									</button>
 								</>
 							)}
 						</div>
@@ -118,6 +123,10 @@ export function Header() {
 				onClose={() => setIsProfileModalOpen(false)}
 				onLogout={handleLogout}
 				user={user}
+			/>
+			<WaitlistModal
+				isOpen={isWaitlistModalOpen}
+				onClose={() => setIsWaitlistModalOpen(false)}
 			/>
 		</>
 	);

@@ -12,7 +12,6 @@ import { Upload } from '@/components/icons/Upload';
 import { Mic } from '@/components/icons/Mic';
 import { useToast } from '@/components/toast/ToastProvider';
 import { getFirebaseAuth } from '@/lib/firebase';
-import Link from 'next/link';
 
 const contextOptions = [
 	{
@@ -689,7 +688,9 @@ export function Ask() {
 						</label>
 						<div className="relative min-w-0 flex-1">
 							{!promptValue &&
-							(hasStartedChat || !isPromptFocused || isListening) ? (
+							(hasStartedChat ||
+								!isPromptFocused ||
+								isListening) ? (
 								<p
 									className="pointer-events-none absolute left-0 top-0 pr-2 text-base font-medium leading-relaxed tracking-[-.02em] text-white/45 sm:text-[1.1rem]"
 									aria-hidden="true"
@@ -758,7 +759,9 @@ export function Ask() {
 						>
 							<Mic
 								className={`transition-colors duration-300 ${
-									isListening ? 'mic-listening' : 'text-[#787878]'
+									isListening
+										? 'mic-listening'
+										: 'text-[#787878]'
 								}`}
 							/>
 						</button>
@@ -787,8 +790,8 @@ export function Ask() {
 						</button>
 					</div>
 				</form>
-				<p className="font-antique-legacy text-base font-medium leading-[1.45] tracking-[-.02em] text-white/50 sm:text-[1.1rem]"> 
-					Share your feedback <Link href="https://docs.google.com/forms/d/e/1FAIpQLSe7TKRdTqlKw7bIA2wAEukMCemsdVtyrjHBPaSqNjKqGBCAiQ/viewform?usp=preview" className="text-[#F47016]/70" target="_blank">here</Link> 🙏.
+				<p className="font-antique-legacy text-base font-medium leading-[1.45] tracking-[-.02em] text-white/50 sm:text-[1.1rem]">
+					Better fashion decision starts here.
 				</p>
 			</>
 		);
