@@ -18,110 +18,265 @@ export default function TermsOfUse() {
 		<div className={pageClass}>
 			<Header />
 			<main className="flex justify-center px-4 pb-10 pt-6 sm:min-h-[calc(100svh-132px)] sm:py-20">
-				<section className="flex w-[min(92vw,860px)] flex-col items-center gap-4 text-center sm:gap-4 lg:gap-4">
+				<section className="flex w-[min(92vw,720px)] flex-col items-start gap-4 text-left sm:gap-4 lg:gap-4">
 					<h1
-						className={`z-10 mb-6 w-full text-center font-mackinac text-[clamp(3.25rem,15vw,4rem)] font-normal leading-[1] tracking-[-.04em] sm:max-w-none ${headingClass}`}
+						className={`z-10 mb-6 w-full text-center font-mackinac text-[clamp(3.2rem,12vw,3.2rem)] font-normal leading-[1] tracking-[-.04em] sm:max-w-none ${headingClass}`}
 					>
 						Terms of Use
 					</h1>
 					<h2
-						className={`z-10 mt-4 w-[min(100vw,720px)] text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}
+						className={`z-10 mt-4 text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}
 					>
-						1 · Who We Are
+						1 · Agreement to These Terms
 					</h2>
 					<p
-						className={`z-10 w-[min(100vw,720px)] text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
 					>
-						CLAi (“CLAi”, “we”, “us”, “our”) is the trading name of
-						The Closet App LTD, a company registered in England and
-						Wales under company number 16742543, with its registered
-						office at 20 Lesney Park Road, United Kingdom.
+						These Terms of Use (“Terms”) govern your access to and use of the CLAi waitlist, beta programme, and fashion intelligence chatbot (together, the “Service”) provided 
+						by The Closet App LTD (“CLAi”, “we”, “us”, “our”), a company registered in England and Wales (Company No. 16742543).
 					</p>
 					<p
-						className={`z-10 w-[min(100vw,720px)] text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
 					>
-						You can contact us about data protection matters at:
-						info@theclai.co.
+						By accessing or using the Service, you confirm that you have read, understood, and agree to be bound by these Terms and our Privacy Policy. If you do not agree, you must not use the Service.
+					</p>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						We may update these Terms from time to time. We will notify you of material changes before they take effect. Continued use of the Service after changes take effect constitutes acceptance.
 					</p>
 					<h2
-						className={`z-10 mt-4 w-[min(100vw,720px)] text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}
+						className={`z-10 mt-4 text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}
 					>
-						2 · Scope of This Policy
+						2 · Eligibility
 					</h2>
 					<p
-						className={`z-10 w-[min(100vw,720px)] text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
 					>
-						This Privacy Policy applies to personal information we
-						collect when you:
+						You must be at least 16 years old to use the Service. By using the Service, you confirm that you meet this requirement. If you are under this age, you must not use the Service.
 					</p>
-					<ul
-						className={`z-10 w-[min(100vw,720px)] list-disc pl-6 text-left font-antique-legacy font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
-					>
-						<li>join our waitlist;</li>
-						<li>
-							take part in our beta or early access programme;
-						</li>
-						<li>use the CLAi fashion intelligence chatbot; or</li>
-						<li>
-							contact us or interact with us in any other way.
-						</li>
-					</ul>
 					<p
-						className={`z-10 w-[min(100vw,720px)] text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
 					>
-						This policy does not cover third-party websites or
-						services linked from CLAi.
+						The Service is currently available in the United Kingdom, the United States, and Canada. If you access the Service from a jurisdiction not listed, you do so at your own risk and are responsible for compliance with local laws.
 					</p>
 					<h2
-						className={`z-10 mt-4 w-[min(100vw,720px)] text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}
+						className={`z-10 mt-4 text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}
 					>
-						3 · Information We Collect
+						3 · The Service
 					</h2>
 					<p
-						className={`z-10 w-[min(100vw,720px)] text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
 					>
-						3.1 · Information you give us
+						CLAi provides AI-powered fashion and styling information and guidance (the “Service”). The Service is currently in an early access / beta phase and is provided for general informational and personal use only.
+					</p>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						The Service is under active development. Features may change, be added, suspended, or withdrawn at any time and without notice. We do not guarantee uninterrupted availability.
+					</p>
+					<h2
+						className={`z-10 mt-4 text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}
+					>
+						4 · Nature of CLAi&apos;s Guidance - Important
+					</h2>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						CLAi&apos;s responses are generated by artificial intelligence. They are intended to provide general fashion and styling information and inspiration only.
+					</p>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						CLAi&apos;s suggestions:
 					</p>
 					<ul
-						className={`z-10 w-[min(100vw,720px)] list-disc pl-6 text-left font-antique-legacy font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+						className={`z-10 list-disc pl-6 text-left font-antique-legacy font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
 					>
-						<li>
-							Your name and email address when you join the
-							waitlist or sign up.
-						</li>
-						<li>
-							Messages you send to the CLAi chatbot, including
-							descriptions of your style, preferences, and goals.
-						</li>
-						<li>
-							Photographs or images you choose to upload of
-							clothing, outfits, or yourself (always optional —
-							see Section 6).
-						</li>
-						<li>
-							Feedback, ratings, survey responses, and comments.
-						</li>
+						<li>are not professional advice of any kind (including styling, financial, medical, or other regulated advice);</li>
+						<li>may be incomplete, inaccurate, or out of date;</li>
+						<li>are based on information you provide and the AI&apos;s interpretation of it; and</li>
+						<li>should be treated as a starting point for your own decisions, not as a definitive answer.</li>
 					</ul>
 					<p
-						className={`z-10 w-[min(100vw,720px)] text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
 					>
-						3.2 · Information we collect automatically
+						You are solely responsible for any decision you make based on CLAi&apos;s suggestions. CLAi does not guarantee any particular outcome, result, or satisfaction from following its guidance.
+					</p>
+					<h2
+						className={`z-10 mt-4 text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}
+					>
+						5 · Acceptable Use
+					</h2>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						You agree to use the Service only for lawful purposes and in accordance with these Terms. You must not:
 					</p>
 					<ul
-						className={`z-10 w-[min(100vw,720px)] list-disc pl-6 text-left font-antique-legacy font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+						className={`z-10 list-disc pl-6 text-left font-antique-legacy font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
 					>
-						<li>
-							Device type, browser, operating system, and IP
-							address.
-						</li>
-						<li>
-							Usage data: pages visited, features used, session
-							duration.
-						</li>
-						<li>
-							Cookie and similar tracking data (see our Cookie
-							Notice).
-						</li>
+						<li>upload content that is unlawful, infringing, harmful, offensive, or deceptive;</li>
+						<li>upload photographs or images of another person without their express permission;</li>
+						<li>use the Service to harass, abuse, or harm any person;</li>
+						<li>attempt to reverse-engineer, copy, disrupt, or interfere with the Service or its underlying technology;</li>
+						<li>use the Service to build a product or service that competes with CLAi;</li>
+						<li>use automated tools, bots, or scrapers to access the Service without our permission;</li>
+						<li>misrepresent your identity or affiliation; or</li>
+						<li>use the Service in any way that violates applicable law or regulation.</li>
+					</ul>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						We reserve the right to suspend or terminate access to the Service for any user who breaches these rules.
+					</p>
+					<h2
+						className={`z-10 mt-4 text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}
+					>
+						6 · Your Content
+					</h2>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						You retain ownership of any content — including text messages and photographs — that you submit to the Service (“Your Content”).
+					</p>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						By submitting Your Content, you grant CLAi a worldwide, royalty-free, non-exclusive licence to use, process, and store Your Content for the purposes of operating and improving the Service.
+					</p>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						You confirm that: (a) you own or have the right to submit Your Content; (b) Your Content does not infringe the rights of any third party; and (c) you have obtained any necessary consents for content featuring other individuals.
+					</p>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						We may remove any content that we reasonably consider to be in breach of these Terms or applicable law.
+					</p>
+					<h2
+						className={`z-10 mt-4 text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}
+					>
+						7 · CLAi&apos;s Intellectual Property
+					</h2>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						The Service, including its software, design, branding, content, and all CLAi outputs belongs to CLAi or its licensors and is protected by copyright, trademark, and other intellectual property laws. You may not copy, reproduce, distribute, or create derivative works from any part of the Service without our express written permission.
+					</p>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						CLAi&apos;s name, logo, and the name &quot;The Closet App&quot; are trademarks of The Closet App LTD. Nothing in these Terms grants you any right to use them.
+					</p>
+					<h2
+						className={`z-10 mt-4 text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}
+					>
+						8 · Beta Service - Additional Terms
+					</h2>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						The Service is currently provided as an early access / beta product. By using it, you acknowledge that:
+					</p>
+					<ul
+						className={`z-10 list-disc pl-6 text-left font-antique-legacy font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						<li>the Service is not a finished product and may contain errors, bugs, or incomplete features;</li>
+						<li>we may make changes to or withdraw the Service at any time without notice;</li>
+						<li>we may contact you to request feedback on your experience;</li>
+						<li>your feedback may be used to improve the Service (see our Privacy Policy and Feedback Notice); and</li>
+						<li>the beta is provided &quot;as is&apos;, with no guarantees of availability, accuracy, or performance.</li>
+					</ul>
+					<h2
+						className={`z-10 mt-4 text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}
+					>
+						9 · Disclaimers and Limitation of Liability
+					</h2>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						Nothing in these Terms limits or excludes our liability for: (a) death or personal injury caused by our negligence; (b) fraud or fraudulent misrepresentation; or (c) any liability that cannot lawfully be limited or excluded.
+					</p>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						Subject to the above, and to the fullest extent permitted by applicable law:
+					</p>
+					<ul
+						className={`z-10 list-disc pl-6 text-left font-antique-legacy font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						<li>the Service is provided on an &quot;as available&quot; basis during the beta phase;</li>
+						<li>we do not guarantee that the Service will be uninterrupted, error-free, or that any particular result will be achieved from its use;</li>
+						<li>CLAi&apos;s suggestions are for informational purposes only. We are not liable for any decision you make in reliance on them; and</li>
+						<li>our total liability to you under or in connection with these Terms shall not exceed £50</li>
+					</ul>
+					<h2
+						className={`z-10 mt-4 text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}
+					>
+						10 · Third-Party Links and Services
+					</h2>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						The Service may contain links to third-party websites or services. We are not responsible for the content, privacy practices, or availability of those sites and your use of them is at your own risk.
+					</p>
+					<h2
+						className={`z-10 mt-4 text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}
+					>
+						11 · Suspension and Termination
+					</h2>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						We may suspend or terminate your access to the Service at any time, including if: (a) you breach these Terms; (b) we reasonably suspect misuse; or (c) we decide to discontinue the beta or the Service.
+					</p>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						You may stop using the Service at any time. To request deletion of your data, contact info@theclai.co.
+					</p>
+					<h2
+						className={`z-10 mt-4 text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}
+					>
+						12 · Governing Law and Jurisdiction
+					</h2>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						These Terms and any dispute or claim arising out of or in connection with them or their subject matter or formation (including non-contractual disputes or claims) shall be governed by and construed in accordance with the law of England and Wales.
+					</p>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						Each party irrevocably agrees that the courts of England and Wales shall have exclusive jurisdiction to settle any such dispute or claim, provided that nothing in this clause shall limit CLAi’s right to bring proceedings against you in the courts of your country of residence or domicile.
+					</p>
+					<h2
+						className={`z-10 mt-4 text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}
+					>
+						13 · General
+					</h2>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						If any provision of these Terms is found to be invalid or unenforceable, it shall be modified to the minimum extent necessary or severed, and the remainder shall continue in full force. Our failure to enforce any provision does not waive our right to enforce it later. These Terms constitute the entire agreement between you and CLAi in relation to the Service and supersede all prior representations or agreements.
+					</p>
+					<h2
+						className={`z-10 mt-4 text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}
+					>
+						14 · Contact
+					</h2>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						For any questions about these Terms:
+					</p>
+					<ul
+						className={`z-10 list-disc pl-6 text-left font-antique-legacy font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						<li>General enquiries: info@theclai.co</li>
+						<li>Legal / formal notices: info@theclai.co or The Closet App LTD, 20 Lesney Park Road, United Kingdom</li>
 					</ul>
 				</section>
 			</main>

@@ -1,6 +1,7 @@
 'use client';
 
 import { Ask } from '@/components/form/Ask';
+import { CookiePopup } from '@/components/cookie/CookiePopup';
 import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
 import { FaqSection } from '@/components/sections/FaqSection';
@@ -28,7 +29,7 @@ export default function Home() {
 				/>
 				<Header variant={theme} />
 				<main className="relative z-10 flex items-center justify-center px-4 pb-10 pt-3 sm:min-h-[calc(100svh-132px)] sm:py-20 mt-10">
-					<section className="flex w-[min(92vw,860px)] flex-col items-center gap-7 text-center text-white sm:gap-8 lg:gap-10">
+					<section className="flex w-[min(92vw,860px)] flex-col items-center gap-7 text-center text-white sm:gap-6 lg:gap-8">
 						<h1 className="z-10 max-w-[11ch] font-mackinac text-[clamp(3.25rem,15vw,6rem)] font-normal leading-[1] tracking-[-.04em] sm:max-w-none">
 							Your Fashion Intelligence Assistant
 						</h1>
@@ -37,11 +38,15 @@ export default function Home() {
 							how to style, and how to get more from fashion.
 						</p>
 						<Ask variant={theme} />
+						<p className="z-10 font-antique-legacy text-center text-[clamp(1.25rem,3.5vw,1.3rem)] font-normal leading-[1.1] tracking-[-.03em] text-white/60">
+							Better Fashion Decisions Start Here
+						</p>
 					</section>
 				</main>
 				<FaqSection variant={theme} />
 			</div>
 			<Footer variant={theme} />
+			<CookiePopup variant={theme} />
 		</>
 	);
 }

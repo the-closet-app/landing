@@ -99,7 +99,7 @@ export default function AboutCLAi() {
 						</p>
 					</div>
 					<p
-						className={`z-10 my-6 text-left font-mackinac text-base font-normal leading-[1.3] tracking-[-.01em] sm:text-[2rem] ${bodyClass}`}
+						className={`z-10 w-full my-6 text-left font-mackinac text-base font-normal leading-[1.3] tracking-[-.01em] sm:text-[2rem] ${bodyClass}`}
 					>
 						<small className="mb-3 block text-left font-antique-legacy uppercase tracking-[.2em] text-[#F47016] sm:text-[0.8rem]">
 							Why you can believe it
@@ -151,7 +151,7 @@ export default function AboutCLAi() {
 						<p
 							className={`z-10 my-5 rounded-[1em] text-center font-mackinac text-base font-normal leading-[1.3] tracking-[-.01em] sm:text-[1.6rem] ${bodyClass}`}
 						>
-							Better Fashion Decision Starts Here
+							Better Fashion Decisions Start Here
 						</p>
 					</div>
 				</section>

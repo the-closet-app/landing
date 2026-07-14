@@ -70,16 +70,16 @@ export function WaitlistContent({
 
 	return (
 		<div
-			className={`grid w-full max-w-[1280px] items-center gap-8 rounded-[28px] p-6 sm:rounded-[34px] sm:p-10 md:grid-cols-[minmax(0,1fr)_minmax(320px,520px)] lg:p-12 ${
+			className={`grid w-full max-w-[1280px] items-center gap-8 rounded-[24px] py-4 sm:rounded-[34px] sm:p-8 md:grid-cols-[minmax(0,1fr)_minmax(320px,520px)] lg:p-12 ${
 				isLight ? 'text-[#1C1C1C]' : 'text-white'
 			}`}
 		>
-			<div className="flex min-w-0 flex-col gap-2 px-10">
-				<h2 className="mb-4 font-mackinac text-2xl font-normal tracking-[-.04em] text-5xl">
+			<div className="flex min-w-0 flex-col gap-2 px-0 sm:px-4 lg:px-10">
+				<h2 className="mb-3 font-mackinac text-[clamp(2.25rem,12vw,3rem)] font-normal leading-[1] tracking-[-.04em] sm:mb-4">
 					Join the waitlist
 				</h2>
 				<p
-					className={`font-antique-legacy text-base leading-[1.5rem] tracking-[-.02em] sm:text-[1.15rem] text-[1.1rem] ${
+					className={`font-antique-legacy text-base leading-[1.45] tracking-[-.02em] sm:text-[1.15rem] ${
 						isLight ? 'text-[#1C1C1C]/60' : 'text-white/50'
 					}`}
 				>
@@ -88,7 +88,7 @@ export function WaitlistContent({
 				</p>
 				<form
 					onSubmit={handleSubmit}
-					className={`mt-5 flex h-14 w-full items-center rounded-full border-[0.5] px-2 pr-[4px] shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_10px_80px_rgba(0,0,0,0.1)] backdrop-blur-md sm:h-[64px] sm:pl-3 sm:pr-2 ${
+					className={`mt-5 flex h-14 w-full min-w-0 items-center rounded-full border-[0.5] px-2 pr-[4px] shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_10px_80px_rgba(0,0,0,0.1)] backdrop-blur-md sm:h-[64px] sm:pl-3 sm:pr-2 ${
 						isLight
 							? 'border-[#1C1C1C]/5 bg-[#1C1C1C]/5'
 							: 'border-[#e5e5e5]/5 bg-[white]/10'
@@ -113,7 +113,7 @@ export function WaitlistContent({
 					<button
 						type="submit"
 						disabled={isSubmitting}
-						className="grid size-11 shrink-0 place-items-center rounded-full bg-[#F47016] text-white transition hover:bg-[#E19245] focus:outline-none focus:ring-2 focus:ring-[#F4B77B] disabled:cursor-not-allowed disabled:opacity-60 sm:size-12"
+						className="grid size-10 shrink-0 place-items-center rounded-full bg-[#F47016] text-white transition hover:bg-[#E19245] focus:outline-none focus:ring-2 focus:ring-[#F4B77B] disabled:cursor-not-allowed disabled:opacity-60 sm:size-12"
 						aria-label="Join waitlist"
 					>
 						<svg
@@ -141,7 +141,7 @@ export function WaitlistContent({
 					</button>
 				</form>
 			</div>
-			<div className="relative hidden aspect-[4/3] min-h-[320px] overflow-hidden rounded-[26px] md:block lg:min-h-[420px]">
+			<div className="relative aspect-[4/3] overflow-hidden rounded-[26px] md:block lg:min-h-[420px]">
 				<Image
 					alt=""
 					className="object-cover"

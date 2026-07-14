@@ -75,7 +75,7 @@ export function WaitlistModal({
 		<div
 			aria-labelledby="waitlist-modal-title"
 			aria-modal="true"
-			className={`fixed inset-0 z-[2147483646] flex h-dvh items-center justify-center overflow-y-auto px-3 py-4 backdrop-blur-sm sm:px-4 ${
+			className={`fixed inset-0 z-[2147483646] flex h-dvh items-start justify-center overflow-y-auto px-3 py-16 backdrop-blur-sm sm:items-center sm:px-4 sm:py-4 ${
 				isLight
 					? 'bg-white/82 text-[#1C1C1C]'
 					: 'bg-[#1C1C1C]/95 text-white'

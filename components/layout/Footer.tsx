@@ -84,6 +84,17 @@ export function Footer({ variant }: FooterProps) {
 							>
 								Terms of Use
 							</Link>
+							{' · '}
+							<Link
+								href="/cookie-notice"
+								className={`mx-1 ${
+									isLight
+										? 'hover:text-[#1C1C1C]'
+										: 'hover:text-white/65'
+								}`}
+							>
+								Cookie Notice
+							</Link>
 						</p>
 						<p
 							className={`font-antique-legacy text-base font-normal tracking-[-.02em] sm:text-[1.1rem] ${
