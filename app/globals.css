@@ -97,6 +97,62 @@ body {
 	transform-origin: center;
 }
 
+@keyframes claiFloatA {
+	0%,
+	100% {
+		transform: translate3d(0, 0, 0) rotate(-5deg);
+	}
+	50% {
+		transform: translate3d(0.35rem, -0.85rem, 0) rotate(-2deg);
+	}
+}
+
+@keyframes claiFloatB {
+	0%,
+	100% {
+		transform: translate3d(0, 0, 0) rotate(6deg);
+	}
+	50% {
+		transform: translate3d(-0.4rem, -0.7rem, 0) rotate(3deg);
+	}
+}
+
+@keyframes claiFloatC {
+	0%,
+	100% {
+		transform: translate3d(0, 0, 0) rotate(-7deg);
+	}
+	50% {
+		transform: translate3d(0.45rem, 0.7rem, 0) rotate(-10deg);
+	}
+}
+
+@keyframes claiFloatD {
+	0%,
+	100% {
+		transform: translate3d(0, 0, 0) rotate(7deg);
+	}
+	50% {
+		transform: translate3d(-0.45rem, 0.65rem, 0) rotate(10deg);
+	}
+}
+
+.clai-float-a {
+	animation: claiFloatA 8s ease-in-out infinite;
+}
+
+.clai-float-b {
+	animation: claiFloatB 9s ease-in-out infinite;
+}
+
+.clai-float-c {
+	animation: claiFloatC 10s ease-in-out infinite;
+}
+
+.clai-float-d {
+	animation: claiFloatD 8.5s ease-in-out infinite;
+}
+
 textarea {
 	field-sizing: content;
 }

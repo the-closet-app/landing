@@ -5,6 +5,7 @@ import { CookiePopup } from '@/components/cookie/CookiePopup';
 import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
 import { FaqSection } from '@/components/sections/FaqSection';
+import { HeroFloatingImages } from '@/components/sections/HeroFloatingImages';
 import { useTheme } from '@/components/theme/ThemeProvider';
 
 export default function Home() {
@@ -27,6 +28,7 @@ export default function Home() {
 							: 'bg-[radial-gradient(circle_at_50%_0%,rgba(244,112,22,0.08),transparent_34%)] opacity-100'
 					}`}
 				/>
+				<HeroFloatingImages />
 				<Header variant={theme} />
 				<main className="relative z-10 flex items-center justify-center px-4 pb-10 pt-3 sm:min-h-[calc(100svh-132px)] sm:py-20 mt-10">
 					<section className="flex w-[min(92vw,860px)] flex-col items-center gap-7 text-center text-white sm:gap-6 lg:gap-8">
@@ -38,7 +40,7 @@ export default function Home() {
 							how to style, and how to get more from fashion.
 						</p>
 						<Ask variant={theme} />
-						<p className="z-10 font-antique-legacy text-center text-[clamp(1.25rem,3.5vw,1.3rem)] font-normal leading-[1.1] tracking-[-.03em] text-white/60">
+						<p className="z-10 font-mackinac text-center text-[clamp(1.25rem,3.5vw,1.3rem)] font-normal leading-[1.1] tracking-[-.03em] text-white/60">
 							Better Fashion Decisions Start Here
 						</p>
 					</section>
