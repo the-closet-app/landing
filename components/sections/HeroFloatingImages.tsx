@@ -4,13 +4,13 @@ const floatingImages = [
 	{
 		alt: '',
 		className:
-			'left-[-2.25rem] top-[20%] w-[92px] rotate-[-5deg] clai-float-a lg:left-[-1rem] lg:w-[116px]',
+			'left-[-2.25rem] top-[20%] w-[92px] h-auto rotate-[-5deg] clai-float-a lg:left-[-1rem] lg:w-[116px]',
 		src: '/top-left.png',
 	},
 	{
 		alt: '',
 		className:
-			'right-[-2.1rem] top-[20%] w-[90px] rotate-[30deg] clai-float-b lg:right-[-2rem] lg:w-[112px]',
+			'right-[-2.1rem] top-[20%] w-[90px] h-auto rotate-[30deg] clai-float-b lg:right-[-2rem] lg:w-[112px]',
 		src: '/top-right.png',
 	},
 	{
@@ -39,6 +39,7 @@ export function HeroFloatingImages() {
 					className={`absolute opacity-90 drop-shadow-[0_18px_45px_rgba(0,0,0,0.22)] ${image.className}`}
 				>
 					<Image
+						loading="eager"
 						alt={image.alt}
 						className="h-auto w-full rounded-[1.2rem]"
 						height={220}
