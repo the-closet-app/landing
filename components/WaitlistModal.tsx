@@ -178,7 +178,7 @@ export function WaitlistModal({ isOpen, onClose }: WaitlistModalProps) {
 						fill
 						priority={false}
 						sizes="(min-width: 1024px) 440px, 40vw"
-						src="/clai-back.jpg"
+						src="/pexels.webp"
 					/>
 					<div className="absolute inset-0 bg-[#1c1c1c]/25" />
 				</div>
