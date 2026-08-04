@@ -171,7 +171,7 @@ export function WaitlistModal({ isOpen, onClose }: WaitlistModalProps) {
 						</p>
 					) : null}
 				</div>
-				<div className="relative hidden aspect-[4/3] min-h-[320px] overflow-hidden rounded-[26px] md:block">
+				<div className="relative aspect-[4/3] min-h-[320px] w-full overflow-hidden rounded-[26px] md:block">
 					<Image
 						alt=""
 						className="object-cover"
