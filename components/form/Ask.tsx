@@ -665,7 +665,9 @@ export function Ask({ variant = 'dark' }: AskProps) {
 		}
 
 		if (file.size > maxImageSize) {
-			toast.error('Upload an image smaller than 5MB.');
+			toast.error(
+				'Image upload limit is 5MB. Please choose a smaller image.'
+			);
 			event.target.value = '';
 			return;
 		}
