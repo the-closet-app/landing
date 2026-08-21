@@ -1,6 +1,6 @@
 'use client';
 
-import type { ChangeEvent, FormEvent } from 'react';
+import type { ChangeEvent, FormEvent, KeyboardEvent } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
@@ -10,8 +10,11 @@ import { AuthModal } from '@/components/auth/AuthModal';
 import { ClaiMark } from '@/components/icons/ClaiMark';
 import { Upload } from '@/components/icons/Upload';
 import { Mic } from '@/components/icons/Mic';
+import { ThemeToggle } from '@/components/theme/ThemeProvider';
 import { useToast } from '@/components/toast/ToastProvider';
 import { getFirebaseAuth } from '@/lib/firebase';
+import { getStyleProfile, type StyleProfileInput } from '@/lib/style-profile';
+import { classifyVisualIntent, type VisualIntent } from '@/lib/visual-intent';
 
 const contextOptions = [
 	{
@@ -52,10 +55,33 @@ type ChatMessage = {
 	role: 'user' | 'assistant';
 	content: string;
 	generatedImageUrl?: string;
+	generatedVisualIntent?: VisualIntent;
 	imageData?: string;
 	imageMimeType?: string;
 	imageName?: string;
 	imagePreviewUrl?: string;
+};
+
+type SavedChatSummary = {
+	id: string;
+	context: ContextOption;
+	lastMessage: string;
+	updatedAt: string;
+};
+
+type SavedChatMessage = {
+	id: string;
+	content: string;
+	createdAt: string;
+	hasImage: boolean;
+	imageMimeType?: string;
+	imageName?: string;
+	role: 'assistant' | 'user';
+};
+
+type ChatHistoryGroup = {
+	label: string;
+	chats: SavedChatSummary[];
 };
 
 type BrowserSpeechRecognition = {
@@ -92,8 +118,10 @@ declare global {
 const maxImageSize = 5 * 1024 * 1024;
 const optimizedImageMaxSize = 1280;
 const optimizedImageQuality = 0.82;
-const maxChatHistoryMessages = 8;
+const maxChatHistoryMessages = 24;
 const supportedImageTypes = ['image/jpeg', 'image/png', 'image/webp'];
+const suedeContextPattern =
+	/\b(shoe|shoes|sneaker|sneakers|trainer|trainers|boot|boots|loafer|loafers|bag|bags|jacket|jackets|coat|coats|skirt|skirts|trouser|trousers|pants|dress|dresses|fabric|material|leather|clean|cleaning|stain|stains|brush|brushes)\b/i;
 
 function subscribeToClient() {
 	return () => {};
@@ -105,6 +133,30 @@ function getClientSnapshot() {
 
 function getServerSnapshot() {
 	return false;
+}
+
+function applyFashionTranscriptCorrections(transcript: string) {
+	if (!suedeContextPattern.test(transcript)) {
+		return transcript;
+	}
+
+	return transcript.replace(/\bsweet\b/gi, (match) =>
+		match[0] === match[0].toUpperCase() ? 'Suede' : 'suede'
+	);
+}
+
+function getMissingVisualProfileFields(profile: StyleProfileInput | null) {
+	const missingFields: string[] = [];
+
+	if (!profile?.gender?.trim()) {
+		missingFields.push('gender or style presentation');
+	}
+
+	if (!profile?.race?.trim()) {
+		missingFields.push('race or ethnicity');
+	}
+
+	return missingFields;
 }
 
 function loadImage(dataUrl: string) {
@@ -195,6 +247,87 @@ function isOnlyOutOfScopeFashionResponse(content: string) {
 	);
 }
 
+function formatHistoryDate(dateString: string) {
+	const date = new Date(dateString);
+
+	if (Number.isNaN(date.getTime())) {
+		return 'Earlier';
+	}
+
+	return new Intl.DateTimeFormat(undefined, {
+		dateStyle: 'medium',
+	}).format(date);
+}
+
+function formatHistoryTime(dateString: string) {
+	const date = new Date(dateString);
+
+	if (Number.isNaN(date.getTime())) {
+		return '';
+	}
+
+	return new Intl.DateTimeFormat(undefined, {
+		hour: 'numeric',
+		minute: '2-digit',
+	}).format(date);
+}
+
+function groupChatsByDate(chats: SavedChatSummary[]): ChatHistoryGroup[] {
+	const groups = new Map<string, SavedChatSummary[]>();
+
+	chats.forEach((chat) => {
+		const label = formatHistoryDate(chat.updatedAt);
+		const group = groups.get(label) ?? [];
+		group.push(chat);
+		groups.set(label, group);
+	});
+
+	return Array.from(groups.entries()).map(
+		([label, groupedChats]) =>
+			({
+				chats: groupedChats,
+				label,
+			}) satisfies ChatHistoryGroup
+	);
+}
+
+function getGenerateVisualLabel(intent: VisualIntent, isLoading: boolean) {
+	const labels: Record<VisualIntent, { idle: string; loading: string }> = {
+		alteration: {
+			idle: 'Generate alteration visual',
+			loading: 'Generating alteration visual...',
+		},
+		care: {
+			idle: 'Generate care visual',
+			loading: 'Generating care visual...',
+		},
+		cleaning: {
+			idle: 'Generate cleaning visual',
+			loading: 'Generating cleaning visual...',
+		},
+		comparison: {
+			idle: 'Generate comparison visual',
+			loading: 'Generating comparison visual...',
+		},
+		outfit: {
+			idle: 'Generate look inspiration',
+			loading: 'Generating look...',
+		},
+		repair: {
+			idle: 'Generate repair visual',
+			loading: 'Generating repair visual...',
+		},
+	};
+
+	return isLoading ? labels[intent].loading : labels[intent].idle;
+}
+
+function shouldAutoGenerateVisual(prompt: string) {
+	return /\b(generate|create|make|show|visuali[sz]e|draw|render)\b.*\b(image|visual|picture|illustration|look|outfit|guide|steps?|process|before.?after)\b/i.test(
+		prompt
+	);
+}
+
 type AskProps = {
 	variant?: 'dark' | 'light';
 };
@@ -218,6 +351,11 @@ export function Ask({ variant = 'dark' }: AskProps) {
 	const [isSpeechSupported, setIsSpeechSupported] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+	const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+	const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+	const [historyError, setHistoryError] = useState('');
+	const [chatHistory, setChatHistory] = useState<SavedChatSummary[]>([]);
+	const [loadingChatId, setLoadingChatId] = useState<string | null>(null);
 	const [generatingLookForMessageId, setGeneratingLookForMessageId] =
 		useState<string | null>(null);
 	const [isChatOpen, setIsChatOpen] = useState(false);
@@ -282,7 +420,9 @@ export function Ask({ variant = 'dark' }: AskProps) {
 			}
 
 			setPromptValue(
-				`${transcriptBaseRef.current}${interimTranscript}`.trim()
+				applyFashionTranscriptCorrections(
+					`${transcriptBaseRef.current}${interimTranscript}`.trim()
+				)
 			);
 		};
 
@@ -393,6 +533,61 @@ export function Ask({ variant = 'dark' }: AskProps) {
 		});
 	}, [generatingLookForMessageId, isChatOpen, messages]);
 
+	useEffect(() => {
+		if (!isHistoryOpen || !user) {
+			return;
+		}
+
+		let isCurrent = true;
+		const authenticatedUser = user;
+
+		async function loadHistory() {
+			setIsHistoryLoading(true);
+			setHistoryError('');
+
+			try {
+				const idToken = await authenticatedUser.getIdToken();
+				const response = await fetch('/api/chat-history', {
+					headers: {
+						Authorization: `Bearer ${idToken}`,
+					},
+				});
+				const data = (await response.json()) as {
+					chats?: SavedChatSummary[];
+					error?: string;
+				};
+
+				if (!response.ok) {
+					throw new Error(
+						data.error ?? 'Unable to load chat history.'
+					);
+				}
+
+				if (isCurrent) {
+					setChatHistory(data.chats ?? []);
+				}
+			} catch (error) {
+				if (isCurrent) {
+					setHistoryError(
+						error instanceof Error
+							? error.message
+							: 'Unable to load chat history.'
+					);
+				}
+			} finally {
+				if (isCurrent) {
+					setIsHistoryLoading(false);
+				}
+			}
+		}
+
+		void loadHistory();
+
+		return () => {
+			isCurrent = false;
+		};
+	}, [isHistoryOpen, user]);
+
 	function handleContextChange(context: ContextOption) {
 		recognitionRef.current?.stop();
 		setActiveContext(context);
@@ -443,6 +638,19 @@ export function Ask({ variant = 'dark' }: AskProps) {
 		}
 	}
 
+	function handlePromptKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+		if (
+			event.key !== 'Enter' ||
+			event.shiftKey ||
+			event.nativeEvent.isComposing
+		) {
+			return;
+		}
+
+		event.preventDefault();
+		event.currentTarget.form?.requestSubmit();
+	}
+
 	async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
 		const file = event.target.files?.[0];
 
@@ -479,6 +687,71 @@ export function Ask({ variant = 'dark' }: AskProps) {
 		setMessages([]);
 		setPromptValue('');
 		handleImageRemove();
+	}
+
+	function handleHistoryOpen() {
+		if (!user) {
+			toast.info('Please log in to view chat history.');
+			setIsAuthModalOpen(true);
+			return;
+		}
+
+		setIsHistoryOpen(true);
+	}
+
+	async function handleSavedChatOpen(chat: SavedChatSummary) {
+		if (!user) {
+			toast.info('Please log in to view chat history.');
+			setIsAuthModalOpen(true);
+			return;
+		}
+
+		setLoadingChatId(chat.id);
+
+		try {
+			const idToken = await user.getIdToken();
+			const response = await fetch(
+				`/api/chat-history/${encodeURIComponent(chat.id)}`,
+				{
+					headers: {
+						Authorization: `Bearer ${idToken}`,
+					},
+				}
+			);
+			const data = (await response.json()) as {
+				chatId?: string;
+				error?: string;
+				messages?: SavedChatMessage[];
+			};
+
+			if (!response.ok) {
+				throw new Error(data.error ?? 'Unable to open this chat.');
+			}
+
+			setActiveContext(chat.context);
+			setChatId(data.chatId ?? chat.id);
+			setMessages(
+				(data.messages ?? []).map((message) => ({
+					content: message.content,
+					id: message.id,
+					imageMimeType: message.imageMimeType,
+					imageName: message.imageName,
+					role: message.role,
+				}))
+			);
+			setPromptValue('');
+			handleImageRemove();
+			setIsHistoryOpen(false);
+			setIsChatOpen(true);
+		} catch (error) {
+			toast.error(
+				error instanceof Error
+					? error.message
+					: 'Unable to open this chat.'
+			);
+		} finally {
+			setLoadingChatId(null);
+		}
 	}
 
 	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -583,6 +856,95 @@ export function Ask({ variant = 'dark' }: AskProps) {
 			if (data.chatId) {
 				setChatId(data.chatId);
 			}
+
+			if (data.answer && shouldAutoGenerateVisual(prompt)) {
+				const visualIntent = classifyVisualIntent(prompt);
+
+				if (visualIntent === 'outfit') {
+					try {
+						const styleProfile = await getStyleProfile(user);
+						const missingProfileFields =
+							getMissingVisualProfileFields(styleProfile);
+
+						if (missingProfileFields.length) {
+							setMessages((currentMessages) => [
+								...currentMessages,
+								{
+									id: crypto.randomUUID(),
+									role: 'assistant',
+									content: `Before I generate a person wearing the look, tell me your ${missingProfileFields.join(
+										', '
+									)}. These are optional, and you can say "prefer not to say" for any of them. Example: "neutral presentation, Black."`,
+								},
+							]);
+							return;
+						}
+					} catch {
+						toast.error(
+							'Unable to check your style profile before generating a look.'
+						);
+						return;
+					}
+				}
+
+				setGeneratingLookForMessageId(assistantMessageId);
+
+				try {
+					const visualResponse = await fetch('/api/generate-look', {
+						method: 'POST',
+						headers: {
+							Authorization: `Bearer ${idToken}`,
+							'Content-Type': 'application/json',
+						},
+						body: JSON.stringify({
+							advice: data.answer,
+							context: activeContext,
+							image: outgoingImage
+								? {
+										data: outgoingImage.data,
+										mimeType: outgoingImage.mimeType,
+										name: outgoingImage.name,
+									}
+								: undefined,
+							prompt,
+						}),
+					});
+					const visualData = (await visualResponse.json()) as {
+						error?: string;
+						imageUrl?: string;
+						visualIntent?: VisualIntent;
+					};
+
+					if (!visualResponse.ok || !visualData.imageUrl) {
+						throw new Error(
+							visualData.error ??
+								'CLAi could not generate an image right now.'
+						);
+					}
+
+					setMessages((currentMessages) =>
+						currentMessages.map((message) =>
+							message.id === assistantMessageId
+								? {
+										...message,
+										generatedImageUrl: visualData.imageUrl,
+										generatedVisualIntent:
+											visualData.visualIntent ??
+											visualIntent,
+									}
+								: message
+						)
+					);
+				} catch (visualError) {
+					toast.error(
+						visualError instanceof Error
+							? visualError.message
+							: 'CLAi could not generate an image right now.'
+					);
+				} finally {
+					setGeneratingLookForMessageId(null);
+				}
+			}
 		} catch (submitError) {
 			const message =
 				submitError instanceof Error
@@ -621,12 +983,41 @@ export function Ask({ variant = 'dark' }: AskProps) {
 			.slice(0, assistantIndex)
 			.reverse()
 			.find((message) => message.role === 'user');
+		const visualIntent = classifyVisualIntent(userMessage?.content ?? '');
 
 		if (
 			!assistantMessage ||
 			assistantMessage.content === 'CLAi is thinking...'
 		) {
 			return;
+		}
+
+		if (visualIntent === 'outfit') {
+			try {
+				const styleProfile = await getStyleProfile(user);
+				const missingProfileFields =
+					getMissingVisualProfileFields(styleProfile);
+
+				if (missingProfileFields.length) {
+					setMessages((currentMessages) => [
+						...currentMessages,
+						{
+							id: crypto.randomUUID(),
+							role: 'assistant',
+							content: `Before I generate a person wearing the look, tell me your ${missingProfileFields.join(
+								', '
+							)}. These are optional, and you can say "prefer not to say" for any of them. Example: "neutral presentation, Black."`,
+						},
+					]);
+					setIsChatOpen(true);
+					return;
+				}
+			} catch {
+				toast.error(
+					'Unable to check your style profile before generating a look.'
+				);
+				return;
+			}
 		}
 
 		setGeneratingLookForMessageId(messageId);
@@ -656,6 +1047,7 @@ export function Ask({ variant = 'dark' }: AskProps) {
 			const data = (await response.json()) as {
 				error?: string;
 				imageUrl?: string;
+				visualIntent?: VisualIntent;
 			};
 
 			if (!response.ok || !data.imageUrl) {
@@ -670,6 +1062,8 @@ export function Ask({ variant = 'dark' }: AskProps) {
 						? {
 								...message,
 								generatedImageUrl: data.imageUrl,
+								generatedVisualIntent:
+									data.visualIntent ?? visualIntent,
 							}
 						: message
 				)
@@ -686,20 +1080,21 @@ export function Ask({ variant = 'dark' }: AskProps) {
 	}
 
 	function renderComposer(isOverlay: boolean) {
+		const useLightComposer = true;
 		const formClassName = isOverlay
-			? isLight
+			? useLightComposer
 				? 'mx-auto mt-auto flex w-[min(94vw,920px)] shrink-0 flex-col justify-between gap-4 rounded-[28px] border border-white/70 bg-white px-4 py-4 text-left shadow-[0_22px_70px_rgba(75,116,178,0.16),inset_0_1px_0_rgba(255,255,255,0.9)] sm:gap-5 sm:rounded-[34px] sm:px-5 sm:py-5'
-				: 'mx-auto mt-auto flex w-[min(94vw,920px)] shrink-0 flex-col justify-between gap-4 rounded-[26px] border-[0.5] border-[#e5e5e5]/5 bg-[#292929]/50 px-4 py-4 text-left shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] sm:gap-5 sm:rounded-[34px] sm:px-5 sm:py-5'
-			: isLight
+				: 'mx-auto mt-auto flex w-[min(94vw,920px)] shrink-0 flex-col justify-between gap-4 rounded-[28px] border border-white/70 bg-white px-4 py-4 text-left shadow-[0_22px_70px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.9)] sm:gap-5 sm:rounded-[34px] sm:px-5 sm:py-5'
+			: useLightComposer
 				? 'flex min-h-[180px] w-full flex-col justify-between gap-4 rounded-[26px] border border-white/70 bg-white px-4 py-4 text-left shadow-[0_22px_70px_rgba(75,116,178,0.16),inset_0_1px_0_rgba(255,255,255,0.9)] sm:min-h-[180px] sm:gap-5 sm:rounded-[34px] sm:px-6 sm:py-6'
-				: 'flex w-full min-h-[180px] flex-col justify-between gap-4 rounded-[26px] border-[0.5] border-[#e5e5e5]/5 bg-[#292929]/50 px-4 py-4 text-left shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] sm:gap-5 sm:rounded-[34px] sm:px-6 sm:py-6';
-		const placeholderClassName = isLight
+				: 'flex min-h-[180px] w-full flex-col justify-between gap-4 rounded-[26px] border border-white/70 bg-white px-4 py-4 text-left shadow-[0_22px_70px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.9)] sm:min-h-[180px] sm:gap-5 sm:rounded-[34px] sm:px-6 sm:py-6';
+		const placeholderClassName = useLightComposer
 			? 'pointer-events-none absolute left-0 top-0 pr-2 text-base font-medium leading-relaxed tracking-[-.02em] text-[#1C1C1C]/35 sm:text-[1.1rem]'
 			: 'pointer-events-none absolute left-0 top-0 pr-2 text-base font-medium leading-relaxed tracking-[-.02em] text-white/45 sm:text-[1.1rem]';
-		const textareaClassName = isLight
+		const textareaClassName = useLightComposer
 			? 'w-full resize-none bg-transparent text-base font-medium leading-[1.3] tracking-[-.02em] text-[#1C1C1C]/80 outline-none placeholder:text-[#1C1C1C]/35 sm:text-[1.1rem]'
 			: 'w-full resize-none bg-transparent text-base font-medium leading-[1.3] tracking-[-.02em] text-[white]/75 outline-none placeholder:text-white/45 sm:text-[1.1rem]';
-		const iconButtonClassName = isLight
+		const iconButtonClassName = useLightComposer
 			? 'grid size-11 place-items-center rounded-full border border-[#1C1C1C]/10 bg-white text-[#1C1C1C] shadow-[0_12px_28px_rgba(75,116,178,0.10)] transition hover:bg-[#F7F7F7] focus:outline-none sm:size-12'
 			: 'shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] grid size-11 place-items-center rounded-full bg-white/10 transition focus:outline-none sm:size-12';
 
@@ -709,7 +1104,9 @@ export function Ask({ variant = 'dark' }: AskProps) {
 					<div className="flex min-w-0 items-start gap-3 px-1 py-1 sm:gap-5 sm:px-2">
 						<ClaiMark
 							className={`mt-[0.2rem] h-5 w-[22px] shrink-0 sm:h-6 sm:w-[26px] ${
-								isLight ? 'text-[#F47016]' : 'text-[#787878]'
+								useLightComposer
+									? 'text-[#F47016]'
+									: 'text-[#787878]'
 							}`}
 						/>
 						<label className="sr-only" htmlFor="ask-clai-prompt">
@@ -728,7 +1125,7 @@ export function Ask({ variant = 'dark' }: AskProps) {
 									{isListening || !hasStartedChat ? (
 										<span
 											className={`ml-0.5 animate-pulse ${
-												isLight
+												useLightComposer
 													? 'text-[#1C1C1C]/40'
 													: 'text-white/55'
 											}`}
@@ -743,6 +1140,7 @@ export function Ask({ variant = 'dark' }: AskProps) {
 								value={promptValue}
 								onFocus={() => setIsPromptFocused(true)}
 								onBlur={handlePromptBlur}
+								onKeyDown={handlePromptKeyDown}
 								onChange={(event) =>
 									setPromptValue(event.target.value)
 								}
@@ -796,7 +1194,7 @@ export function Ask({ variant = 'dark' }: AskProps) {
 								className={`transition-colors duration-300 ${
 									isListening
 										? 'mic-listening'
-										: isLight
+										: useLightComposer
 											? 'text-[#1C1C1C]'
 											: 'text-[#787878]'
 								}`}
@@ -810,7 +1208,7 @@ export function Ask({ variant = 'dark' }: AskProps) {
 						>
 							<Upload
 								className={
-									isLight
+									useLightComposer
 										? 'size-5 text-[#1C1C1C]'
 										: 'size-5 text-[#787878]'
 								}
@@ -841,6 +1239,8 @@ export function Ask({ variant = 'dark' }: AskProps) {
 		);
 	}
 
+	const chatHistoryGroups = groupChatsByDate(chatHistory);
+
 	const chatOverlay =
 		isChatOpen && isMounted
 			? createPortal(
@@ -855,7 +1255,21 @@ export function Ask({ variant = 'dark' }: AskProps) {
 						{isLight ? (
 							<div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_22%,rgba(255,255,255,0.18),transparent_28%),radial-gradient(circle_at_76%_46%,rgba(255,255,255,0.16),transparent_30%)]" />
 						) : null}
-						<div className="absolute right-4 top-4 z-10 sm:right-8 sm:top-7">
+						<div className="absolute left-4 top-4 z-10 sm:left-8 sm:top-7">
+							<button
+								type="button"
+								onClick={handleHistoryOpen}
+								className={`rounded-full px-4 py-2 font-antique-legacy text-sm font-medium transition ${
+									isLight
+										? 'bg-white/25 text-white hover:bg-white/35'
+										: 'bg-white/10 text-white/70 hover:bg-white/15 hover:text-white'
+								}`}
+							>
+								History
+							</button>
+						</div>
+						<div className="absolute right-4 top-4 z-10 flex items-center gap-2 sm:right-8 sm:top-7">
+							<ThemeToggle />
 							<button
 								type="button"
 								onClick={(event) => {
@@ -877,156 +1291,325 @@ export function Ask({ variant = 'dark' }: AskProps) {
 							ref={chatScrollRef}
 							className="scrollbar-none mx-auto flex w-[min(94vw,920px)] flex-1 flex-col space-y-5 overflow-y-auto pb-6 pt-16 sm:space-y-6 sm:pb-8 sm:pt-24"
 						>
-							{messages.map((message) => (
-								<div
-									key={message.id}
-									className={`flex ${
-										message.role === 'user'
-											? 'justify-end'
-											: 'justify-start'
-									}`}
-								>
-									<article
-										className={`font-antique-legacy text-base font-medium sm:text-[1.1rem] ${
+							{messages.map((message, messageIndex) => {
+								const previousUserMessage = messages
+									.slice(0, messageIndex)
+									.reverse()
+									.find(
+										(chatMessage) =>
+											chatMessage.role === 'user'
+									);
+								const visualIntent =
+									message.generatedVisualIntent ??
+									classifyVisualIntent(
+										previousUserMessage?.content ?? ''
+									);
+								const isGeneratingThisVisual =
+									generatingLookForMessageId === message.id;
+
+								return (
+									<div
+										key={message.id}
+										className={`flex ${
 											message.role === 'user'
-												? isLight
-													? 'w-auto max-w-[86%] rounded-[22px] bg-white/35 px-4 py-3 leading-[1.3] text-white backdrop-blur-[10px] sm:max-w-[50%]'
-													: 'w-auto max-w-[86%] rounded-[22px] bg-white/10 px-4 py-3 leading-[1.3] text-white/70 backdrop-blur-[10px] sm:max-w-[50%]'
-												: isLight
-													? 'w-full text-white leading-[1.3]'
-													: 'w-full text-[white]/70 leading-[1.3]'
+												? 'justify-end'
+												: 'justify-start'
 										}`}
 									>
-										{message.imagePreviewUrl ? (
-											<img
-												src={message.imagePreviewUrl}
-												alt={message.imageName ?? ''}
-												className="mb-3 h-14 w-14 rounded-[12px] object-cover"
-											/>
-										) : null}
-										{message.content ===
-										'CLAi is thinking...' ? (
-											<div
-												className="flex min-h-8 items-center"
-												aria-label="CLAi is thinking"
-												role="status"
-											>
-												<ClaiMark className="clai-loading-mark mt-[0.2rem] h-6 w-[26px] shrink-0 text-[#787878]" />
-											</div>
-										) : (
-											<ReactMarkdown
-												components={{
-													p: ({ children }) => (
-														<p className="mb-2 last:mb-0">
-															{children}
-														</p>
-													),
-													strong: ({ children }) => (
-														<strong className="font-medium">
-															{children}
-														</strong>
-													),
-													h1: ({ children }) => (
-														<p
-															className={`mb-2 mt-4 text-lg font-medium first:mt-0 ${
-																isLight
-																	? 'text-white'
-																	: 'text-[white]/70'
-															}`}
-														>
-															{children}
-														</p>
-													),
-													h2: ({ children }) => (
-														<p
-															className={`mb-2 mt-4 text-base font-medium first:mt-0 ${
-																isLight
-																	? 'text-white'
-																	: 'text-[white]/70'
-															}`}
-														>
-															{children}
-														</p>
-													),
-													h3: ({ children }) => (
-														<p
-															className={`mb-2 mt-4 font-medium first:mt-0 ${
-																isLight
-																	? 'text-white'
-																	: 'text-[white]/70'
-															}`}
-														>
-															{children}
-														</p>
-													),
-													ul: ({ children }) => (
-														<ul className="mb-3 ml-5 list-disc space-y-1 marker:text-current last:mb-0">
-															{children}
-														</ul>
-													),
-													ol: ({ children }) => (
-														<ol className="mb-3 ml-5 list-decimal space-y-1 marker:text-current last:mb-0">
-															{children}
-														</ol>
-													),
-													li: ({ children }) => (
-														<li className="pl-1">
-															{children}
-														</li>
-													),
-													hr: () => null,
-												}}
-											>
-												{message.content}
-											</ReactMarkdown>
-										)}
-										{message.generatedImageUrl ? (
-											<img
-												src={message.generatedImageUrl}
-												alt="Generated modest fashion look inspiration"
-												className="mt-5 max-h-[58vh] w-full max-w-[320px] object-contain drop-shadow-[0_18px_32px_rgba(0,0,0,0.38)] sm:max-h-[520px] sm:max-w-[360px]"
-											/>
-										) : null}
-										{message.role === 'assistant' &&
-										message.content !==
-											'CLAi is thinking...' &&
-										!isOnlyOutOfScopeFashionResponse(
-											message.content
-										) &&
-										!message.generatedImageUrl ? (
-											<button
-												type="button"
-												onClick={() =>
-													handleGenerateLook(
-														message.id
-													)
-												}
-												disabled={
-													generatingLookForMessageId !==
-													null
-												}
-												className={`mt-5 rounded-full py-2 text-[1em] font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${
-													isLight
-														? 'text-white/65 hover:text-white'
-														: 'text-white/20 hover:text-white/40'
-												} ${
-													generatingLookForMessageId ===
-													message.id
-														? 'animate-pulse'
-														: ''
-												}`}
-											>
-												{generatingLookForMessageId ===
-												message.id
-													? 'Generating look...'
-													: 'Generate look inspiration'}
-											</button>
-										) : null}
-									</article>
-								</div>
-							))}
+										<article
+											className={`font-antique-legacy text-base font-medium sm:text-[1.1rem] ${
+												message.role === 'user'
+													? isLight
+														? 'w-auto max-w-[86%] rounded-[22px] bg-white/35 px-4 py-3 leading-[1.3] text-white backdrop-blur-[10px] sm:max-w-[50%]'
+														: 'w-auto max-w-[86%] rounded-[22px] bg-white/10 px-4 py-3 leading-[1.3] text-white/70 backdrop-blur-[10px] sm:max-w-[50%]'
+													: isLight
+														? 'w-full text-white leading-[1.3]'
+														: 'w-full text-[white]/70 leading-[1.3]'
+											}`}
+										>
+											{message.imagePreviewUrl ? (
+												<img
+													src={
+														message.imagePreviewUrl
+													}
+													alt={
+														message.imageName ?? ''
+													}
+													className="mb-3 h-14 w-14 rounded-[12px] object-cover"
+												/>
+											) : null}
+											{message.content ===
+											'CLAi is thinking...' ? (
+												<div
+													className="flex min-h-8 items-center"
+													aria-label="CLAi is thinking"
+													role="status"
+												>
+													<ClaiMark className="clai-loading-mark mt-[0.2rem] h-6 w-[26px] shrink-0 text-[#787878]" />
+												</div>
+											) : (
+												<ReactMarkdown
+													components={{
+														p: ({ children }) => (
+															<p className="mb-2 last:mb-0">
+																{children}
+															</p>
+														),
+														strong: ({
+															children,
+														}) => (
+															<strong className="font-medium">
+																{children}
+															</strong>
+														),
+														h1: ({ children }) => (
+															<p
+																className={`mb-2 mt-4 text-lg font-medium first:mt-0 ${
+																	isLight
+																		? 'text-white'
+																		: 'text-[white]/70'
+																}`}
+															>
+																{children}
+															</p>
+														),
+														h2: ({ children }) => (
+															<p
+																className={`mb-2 mt-4 text-base font-medium first:mt-0 ${
+																	isLight
+																		? 'text-white'
+																		: 'text-[white]/70'
+																}`}
+															>
+																{children}
+															</p>
+														),
+														h3: ({ children }) => (
+															<p
+																className={`mb-2 mt-4 font-medium first:mt-0 ${
+																	isLight
+																		? 'text-white'
+																		: 'text-[white]/70'
+																}`}
+															>
+																{children}
+															</p>
+														),
+														ul: ({ children }) => (
+															<ul className="mb-3 ml-5 list-disc space-y-1 marker:text-current last:mb-0">
+																{children}
+															</ul>
+														),
+														ol: ({ children }) => (
+															<ol className="mb-3 ml-5 list-decimal space-y-1 marker:text-current last:mb-0">
+																{children}
+															</ol>
+														),
+														li: ({ children }) => (
+															<li className="pl-1">
+																{children}
+															</li>
+														),
+														hr: () => null,
+													}}
+												>
+													{message.content}
+												</ReactMarkdown>
+											)}
+											{message.generatedImageUrl ? (
+												<img
+													src={
+														message.generatedImageUrl
+													}
+													alt={`Generated ${visualIntent} fashion visual`}
+													className="mt-5 max-h-[58vh] w-full max-w-[320px] object-contain drop-shadow-[0_18px_32px_rgba(0,0,0,0.38)] sm:max-h-[520px] sm:max-w-[360px]"
+												/>
+											) : null}
+											{message.role === 'assistant' &&
+											message.content !==
+												'CLAi is thinking...' &&
+											!isOnlyOutOfScopeFashionResponse(
+												message.content
+											) &&
+											!message.generatedImageUrl ? (
+												<button
+													type="button"
+													onClick={() =>
+														handleGenerateLook(
+															message.id
+														)
+													}
+													disabled={
+														generatingLookForMessageId !==
+														null
+													}
+													className={`mt-5 inline-flex rounded-full bg-[linear-gradient(90deg,#4196D9,#E6CFE1)] p-[2px] text-[0.95em] font-medium text-white transition hover:text-white/80 focus:outline-none focus:ring-2 focus:ring-[#E6CFE1]/60 disabled:cursor-not-allowed disabled:opacity-50 ${
+														isGeneratingThisVisual
+															? 'animate-pulse'
+															: ''
+													}`}
+												>
+													<span className="rounded-full bg-[#1C1C1C] px-4 py-2">
+														{getGenerateVisualLabel(
+															visualIntent,
+															isGeneratingThisVisual
+														)}
+													</span>
+												</button>
+											) : null}
+										</article>
+									</div>
+								);
+							})}
 						</div>
 						{renderComposer(true)}
+					</div>,
+					document.body
+				)
+			: null;
+
+	const chatHistoryOverlay =
+		isHistoryOpen && isMounted
+			? createPortal(
+					<div className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/55 px-4 py-6 backdrop-blur-sm">
+						<section
+							className={`flex max-h-[min(78vh,720px)] w-full max-w-[560px] flex-col rounded-[28px] p-4 shadow-[0_26px_90px_rgba(0,0,0,0.28)] sm:p-5 ${
+								isLight
+									? 'bg-white text-[#1C1C1C]'
+									: 'bg-[#292929] text-white'
+							}`}
+							aria-label="CLAi chat history"
+						>
+							<div className="flex items-center justify-between gap-4 border-b border-current/10 pb-4">
+								<div>
+									<h2 className="font-mackinac text-2xl font-normal tracking-[-.04em]">
+										Chat history
+									</h2>
+									<p
+										className={`mt-1 font-antique-legacy text-sm ${
+											isLight
+												? 'text-[#1C1C1C]/55'
+												: 'text-white/50'
+										}`}
+									>
+										Reopen a previous CLAi conversation.
+									</p>
+								</div>
+								<button
+									type="button"
+									onClick={() => setIsHistoryOpen(false)}
+									className={`grid size-9 shrink-0 place-items-center rounded-full text-xl leading-none transition ${
+										isLight
+											? 'bg-[#1C1C1C]/5 text-[#1C1C1C]/60 hover:bg-[#1C1C1C]/10 hover:text-[#1C1C1C]'
+											: 'bg-white/10 text-white/60 hover:bg-white/15 hover:text-white'
+									}`}
+									aria-label="Close chat history"
+								>
+									×
+								</button>
+							</div>
+							<div className="scrollbar-none min-h-[220px] overflow-y-auto py-3">
+								{isHistoryLoading ? (
+									<div
+										className={`flex h-48 items-center justify-center font-antique-legacy ${
+											isLight
+												? 'text-[#1C1C1C]/55'
+												: 'text-white/50'
+										}`}
+									>
+										Loading chats...
+									</div>
+								) : historyError ? (
+									<div
+										className={`rounded-2xl px-4 py-3 font-antique-legacy ${
+											isLight
+												? 'bg-[#F47016]/10 text-[#1C1C1C]/70'
+												: 'bg-white/10 text-white/65'
+										}`}
+									>
+										{historyError}
+									</div>
+								) : chatHistoryGroups.length ? (
+									<div className="space-y-5">
+										{chatHistoryGroups.map((group) => (
+											<div key={group.label}>
+												<p
+													className={`mb-2 font-antique-legacy text-xs uppercase tracking-[.18em] ${
+														isLight
+															? 'text-[#1C1C1C]/45'
+															: 'text-white/35'
+													}`}
+												>
+													{group.label}
+												</p>
+												<div className="space-y-2">
+													{group.chats.map((chat) => (
+														<button
+															key={chat.id}
+															type="button"
+															onClick={() =>
+																handleSavedChatOpen(
+																	chat
+																)
+															}
+															disabled={
+																loadingChatId !==
+																null
+															}
+															className={`w-full rounded-2xl px-4 py-3 text-left transition disabled:cursor-wait disabled:opacity-60 ${
+																isLight
+																	? 'bg-[#EFF6FB] hover:bg-[#E2F0FA]'
+																	: 'bg-white/5 hover:bg-white/10'
+															}`}
+														>
+															<span className="flex items-center justify-between gap-3">
+																<span className="min-w-0 truncate font-antique-legacy text-base font-medium">
+																	{chat.lastMessage ||
+																		'Untitled CLAi chat'}
+																</span>
+																<span
+																	className={`shrink-0 font-antique-legacy text-xs ${
+																		isLight
+																			? 'text-[#1C1C1C]/45'
+																			: 'text-white/35'
+																	}`}
+																>
+																	{loadingChatId ===
+																	chat.id
+																		? 'Opening...'
+																		: formatHistoryTime(
+																				chat.updatedAt
+																			)}
+																</span>
+															</span>
+															<span
+																className={`mt-1 block font-antique-legacy text-xs capitalize ${
+																	isLight
+																		? 'text-[#1C1C1C]/45'
+																		: 'text-white/35'
+																}`}
+															>
+																{chat.context}
+															</span>
+														</button>
+													))}
+												</div>
+											</div>
+										))}
+									</div>
+								) : (
+									<div
+										className={`flex h-48 items-center justify-center text-center font-antique-legacy ${
+											isLight
+												? 'text-[#1C1C1C]/55'
+												: 'text-white/50'
+										}`}
+									>
+										No saved chats yet.
+									</div>
+								)}
+							</div>
+						</section>
 					</div>,
 					document.body
 				)
@@ -1064,8 +1647,22 @@ export function Ask({ variant = 'dark' }: AskProps) {
 					);
 				})}
 			</div>
+			{user ? (
+				<button
+					type="button"
+					onClick={handleHistoryOpen}
+					className={`font-antique-legacy text-sm font-medium tracking-[-.02em] transition ${
+						isLight
+							? 'text-white/85 hover:text-white'
+							: 'text-white/45 hover:text-white/70'
+					}`}
+				>
+					View chat history
+				</button>
+			) : null}
 			{isChatOpen ? null : renderComposer(false)}
 			{chatOverlay}
+			{chatHistoryOverlay}
 			<AuthModal
 				isOpen={isAuthModalOpen}
 				onClose={() => setIsAuthModalOpen(false)}

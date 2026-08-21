@@ -11,12 +11,19 @@ import {
 	signInWithPopup,
 	signInWithRedirect,
 	type AuthError,
+	type User,
 	updateProfile,
 } from 'firebase/auth';
 
 import { GoogleIcon } from '@/components/icons/GoogleIcon';
 import { useToast } from '@/components/toast/ToastProvider';
 import { getFirebaseAuth, googleProvider } from '@/lib/firebase';
+import {
+	getStyleProfileErrorMessage,
+	getStyleProfile,
+	saveStyleProfile,
+	type StyleProfileInput,
+} from '@/lib/style-profile';
 import { ClaiMark } from '../icons/ClaiMark';
 
 type AuthModalProps = {
@@ -24,6 +31,8 @@ type AuthModalProps = {
 	onClose: () => void;
 	variant?: 'dark' | 'light';
 };
+
+type AuthMode = 'login' | 'signup' | 'reset' | 'styleProfile';
 
 function subscribeToClient() {
 	return () => {};
@@ -83,6 +92,11 @@ function getAuthErrorMessage(error: unknown) {
 	return 'Something went wrong. Please try again.';
 }
 
+const emptyStyleProfile: StyleProfileInput = {
+	gender: '',
+	race: '',
+};
+
 export function AuthModal({
 	isOpen,
 	onClose,
@@ -94,9 +108,12 @@ export function AuthModal({
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
 	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [authMode, setAuthMode] = useState<'login' | 'signup' | 'reset'>(
-		'login'
+	const [authMode, setAuthMode] = useState<AuthMode>('login');
+	const [pendingProfileUser, setPendingProfileUser] = useState<User | null>(
+		null
 	);
+	const [styleProfile, setStyleProfile] =
+		useState<StyleProfileInput>(emptyStyleProfile);
 	const isMounted = useSyncExternalStore(
 		subscribeToClient,
 		getClientSnapshot,
@@ -105,11 +122,22 @@ export function AuthModal({
 
 	useEffect(() => {
 		void getRedirectResult(getFirebaseAuth())
-			.then((result) => {
-				if (result?.user) {
-					toast.success('Logged in to CLAi.');
-					onClose();
+			.then(async (result) => {
+				if (!result?.user) {
+					return;
 				}
+
+				const existingProfile = await getStyleProfile(result.user);
+
+				if (!existingProfile) {
+					setPendingProfileUser(result.user);
+					setAuthMode('styleProfile');
+					toast.success('Logged in with Google.');
+					return;
+				}
+
+				toast.success('Logged in to CLAi.');
+				onClose();
 			})
 			.catch((error) => {
 				toast.error(getAuthErrorMessage(error));
@@ -160,6 +188,36 @@ export function AuthModal({
 			? 'bg-[#1C1C1C]/5 text-[#1C1C1C] placeholder:text-[#1C1C1C]/35'
 			: 'bg-white/10 text-white placeholder:text-white/35'
 	}`;
+	const helperTextColor = isLight ? 'text-[#1C1C1C]/55' : 'text-white/55';
+	const fieldLabelColor = isLight ? 'text-[#1C1C1C]/45' : 'text-white/45';
+	const title =
+		authMode === 'reset'
+			? 'Reset password'
+			: authMode === 'login'
+				? 'Login to CLAi'
+				: authMode === 'styleProfile'
+					? 'Style Profile'
+					: 'Join CLAi';
+
+	async function maybeShowStyleProfile(user: User) {
+		let existingProfile: Awaited<ReturnType<typeof getStyleProfile>> = null;
+
+		try {
+			existingProfile = await getStyleProfile(user);
+		} catch {
+			existingProfile = null;
+		}
+
+		if (existingProfile) {
+			return false;
+		}
+
+		setPendingProfileUser(user);
+		setStyleProfile(emptyStyleProfile);
+		setAuthMode('styleProfile');
+
+		return true;
+	}
 
 	async function handleEmailLogin(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -180,15 +238,31 @@ export function AuthModal({
 				);
 
 				if (name.trim()) {
-					await updateProfile(credential.user, {
-						displayName: name.trim(),
-					});
+					try {
+						await updateProfile(credential.user, {
+							displayName: name.trim(),
+						});
+					} catch {
+						toast.info(
+							'Account created. You can update your name later.'
+						);
+					}
 				}
 
-				await sendEmailVerification(credential.user);
-				toast.success(
-					'Account created. Check your email to verify your account.'
-				);
+				try {
+					await sendEmailVerification(credential.user);
+					toast.success(
+						'Account created. Check your email to verify your account.'
+					);
+				} catch {
+					toast.info(
+						'Account created. We could not send the verification email yet.'
+					);
+				}
+
+				setPendingProfileUser(credential.user);
+				setStyleProfile(emptyStyleProfile);
+				setAuthMode('styleProfile');
 			} else {
 				const credential = await signInWithEmailAndPassword(
 					getFirebaseAuth(),
@@ -201,6 +275,11 @@ export function AuthModal({
 					toast.info(
 						'Logged in. Check your email to verify your account.'
 					);
+					return;
+				}
+
+				if (await maybeShowStyleProfile(credential.user)) {
+					toast.success('Logged in to CLAi.');
 					return;
 				}
 
@@ -218,7 +297,16 @@ export function AuthModal({
 		setIsSubmitting(true);
 
 		try {
-			await signInWithPopup(getFirebaseAuth(), googleProvider);
+			const credential = await signInWithPopup(
+				getFirebaseAuth(),
+				googleProvider
+			);
+
+			if (await maybeShowStyleProfile(credential.user)) {
+				toast.success('Logged in with Google.');
+				return;
+			}
+
 			toast.success('Logged in with Google.');
 			onClose();
 		} catch (error) {
@@ -236,6 +324,53 @@ export function AuthModal({
 		} finally {
 			setIsSubmitting(false);
 		}
+	}
+
+	async function handleStyleProfileSubmit(event: FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+
+		if (!pendingProfileUser) {
+			onClose();
+			return;
+		}
+
+		setIsSubmitting(true);
+
+		try {
+			await saveStyleProfile(pendingProfileUser, styleProfile);
+			toast.success('Style profile saved.');
+			onClose();
+		} catch (error) {
+			toast.error(getStyleProfileErrorMessage(error));
+		} finally {
+			setIsSubmitting(false);
+		}
+	}
+
+	async function handleSkipStyleProfile() {
+		if (!pendingProfileUser) {
+			onClose();
+			return;
+		}
+
+		setIsSubmitting(true);
+
+		try {
+			await saveStyleProfile(pendingProfileUser, {});
+			toast.info('Style profile skipped. CLAi will ask when needed.');
+			onClose();
+		} catch (error) {
+			toast.error(getStyleProfileErrorMessage(error));
+		} finally {
+			setIsSubmitting(false);
+		}
+	}
+
+	function updateStyleProfile(field: keyof StyleProfileInput, value: string) {
+		setStyleProfile((currentProfile) => ({
+			...currentProfile,
+			[field]: value,
+		}));
 	}
 
 	return createPortal(
@@ -267,160 +402,222 @@ export function AuthModal({
 					>
 						<ClaiMark className="h-8 w-9 shrink-0 text-[#D88435] sm:h-8 sm:w-8" />
 						<span className="font-mackinac text-3xl font-normal leading-none sm:text-4xl">
-							{authMode === 'reset'
-								? 'Reset password'
-								: authMode === 'login'
-									? 'Login to CLAi'
-									: 'Join CLAi'}
+							{title}
 						</span>
 					</h2>
-					{/* <button
-						type="button"
-						onClick={onClose}
-						className="grid size-5 shrink-0 place-items-center rounded-full bg-white/10 text-[1rem] leading-none text-white/70 transition hover:text-white"
-						aria-label="Close"
-					>
-						×
-					</button> */}
 				</div>
-				<form
-					className="flex flex-col gap-4"
-					onSubmit={handleEmailLogin}
-				>
-					{authMode === 'signup' ? (
-						<label className="flex flex-col gap-2 font-antique-legacy text-sm tracking-[-.02em] text-white/65">
+
+				{authMode === 'styleProfile' ? (
+					<form
+						className="flex flex-col gap-4"
+						onSubmit={handleStyleProfileSubmit}
+					>
+						<p
+							className={`font-antique-legacy text-base leading-[1.4] tracking-[-.02em] sm:text-[1.05rem] ${helperTextColor}`}
+						>
+							Optional. Share what helps CLAi style you better. If
+							you skip this, CLAi will not assume.
+						</p>
+						<label className="flex flex-col gap-2 font-antique-legacy text-sm tracking-[-.02em]">
+							<span className={fieldLabelColor}>
+								Gender / style presentation
+							</span>
 							<input
 								type="text"
-								value={name}
+								value={styleProfile.gender}
 								onChange={(event) =>
-									setName(event.target.value)
+									updateStyleProfile(
+										'gender',
+										event.target.value
+									)
 								}
-								required
 								className={inputClassName}
-								placeholder="Your name"
+								placeholder="e.g. femme, masc, or neutral"
 							/>
 						</label>
-					) : null}
-					<label className="flex flex-col gap-2 font-antique-legacy text-sm tracking-[-.02em] text-white/65">
-						<input
-							type="email"
-							value={email}
-							onChange={(event) => setEmail(event.target.value)}
-							required
-							className={inputClassName}
-							placeholder="you@example.com"
-						/>
-					</label>
-					{authMode !== 'reset' ? (
-						<label className="flex flex-col gap-2 font-antique-legacy text-sm tracking-[-.02em] text-white/65">
+						<label className="flex flex-col gap-2 font-antique-legacy text-sm tracking-[-.02em]">
+							<span className={fieldLabelColor}>
+								Race / ethnicity
+							</span>
 							<input
-								type="password"
-								value={password}
+								type="text"
+								value={styleProfile.race}
 								onChange={(event) =>
-									setPassword(event.target.value)
+									updateStyleProfile(
+										'race',
+										event.target.value
+									)
 								}
-								required
 								className={inputClassName}
-								placeholder="Your password"
+								placeholder="e.g. Black, South Asian, mixed, prefer not to say"
 							/>
 						</label>
-					) : null}
-
-					<button
-						type="submit"
-						disabled={isSubmitting}
-						className="h-[52px] rounded-full bg-[#F47016] px-6 font-antique-legacy text-lg font-medium tracking-[-.02em] text-white transition hover:bg-[#F47016] disabled:cursor-not-allowed disabled:opacity-60 sm:h-14 sm:text-[1.2rem]"
-					>
-						{isSubmitting
-							? authMode === 'reset'
-								? 'Sending...'
-								: authMode === 'login'
-									? 'Signing in...'
-									: 'Creating account...'
-							: authMode === 'reset'
-								? 'Send reset email'
-								: authMode === 'login'
-									? 'Login'
-									: 'Create account'}
-					</button>
-				</form>
-
-				<div
-					className={`mt-4 flex font-antique-legacy text-base tracking-[-.01em] sm:text-[1.1rem] ${
-						authMode === 'login'
-							? 'items-center justify-between gap-4'
-							: 'justify-center'
-					}`}
-				>
-					{authMode === 'login' ? (
+						<button
+							type="submit"
+							disabled={isSubmitting}
+							className="h-[52px] rounded-full bg-[#F47016] px-6 font-antique-legacy text-lg font-medium tracking-[-.02em] text-white transition hover:bg-[#F47016] disabled:cursor-not-allowed disabled:opacity-60 sm:h-14 sm:text-[1.2rem]"
+						>
+							{isSubmitting ? 'Saving...' : 'Save style profile'}
+						</button>
 						<button
 							type="button"
-							onClick={() => {
-								setAuthMode('reset');
-							}}
-							className={`transition ${mutedLinkColor}`}
+							onClick={handleSkipStyleProfile}
+							disabled={isSubmitting}
+							className={`font-antique-legacy text-base tracking-[-.01em] transition disabled:cursor-not-allowed disabled:opacity-60 sm:text-[1.1rem] ${mutedLinkColor}`}
 						>
-							Forgot password?
+							Skip for now
 						</button>
-					) : null}
-					<button
-						type="button"
-						onClick={() => {
-							setAuthMode((currentMode) => {
-								if (currentMode === 'signup') {
-									return 'login';
-								}
-
-								return 'signup';
-							});
-						}}
-						className={`transition ${mutedLinkColor}`}
-					>
-						{authMode === 'signup'
-							? 'Already have an account? Login'
-							: authMode === 'reset'
-								? 'Back to login'
-								: 'Create an account'}
-					</button>
-				</div>
-
-				{authMode !== 'reset' ? (
+					</form>
+				) : (
 					<>
+						<form
+							className="flex flex-col gap-4"
+							onSubmit={handleEmailLogin}
+						>
+							{authMode === 'signup' ? (
+								<label className="flex flex-col gap-2 font-antique-legacy text-sm tracking-[-.02em] text-white/65">
+									<input
+										type="text"
+										value={name}
+										onChange={(event) =>
+											setName(event.target.value)
+										}
+										required
+										className={inputClassName}
+										placeholder="Your name"
+									/>
+								</label>
+							) : null}
+							<label className="flex flex-col gap-2 font-antique-legacy text-sm tracking-[-.02em] text-white/65">
+								<input
+									type="email"
+									value={email}
+									onChange={(event) =>
+										setEmail(event.target.value)
+									}
+									required
+									className={inputClassName}
+									placeholder="you@example.com"
+								/>
+							</label>
+							{authMode !== 'reset' ? (
+								<label className="flex flex-col gap-2 font-antique-legacy text-sm tracking-[-.02em] text-white/65">
+									<input
+										type="password"
+										value={password}
+										onChange={(event) =>
+											setPassword(event.target.value)
+										}
+										required
+										className={inputClassName}
+										placeholder="Your password"
+									/>
+								</label>
+							) : null}
+
+							<button
+								type="submit"
+								disabled={isSubmitting}
+								className="h-[52px] rounded-full bg-[#F47016] px-6 font-antique-legacy text-lg font-medium tracking-[-.02em] text-white transition hover:bg-[#F47016] disabled:cursor-not-allowed disabled:opacity-60 sm:h-14 sm:text-[1.2rem]"
+							>
+								{isSubmitting
+									? authMode === 'reset'
+										? 'Sending...'
+										: authMode === 'login'
+											? 'Signing in...'
+											: 'Creating account...'
+									: authMode === 'reset'
+										? 'Send reset email'
+										: authMode === 'login'
+											? 'Login'
+											: 'Create account'}
+							</button>
+						</form>
+
 						<div
-							className={`my-6 flex items-center gap-3 ${
-								isLight ? 'text-[#1C1C1C]/35' : 'text-white/35'
+							className={`mt-4 flex font-antique-legacy text-base tracking-[-.01em] sm:text-[1.1rem] ${
+								authMode === 'login'
+									? 'items-center justify-between gap-4'
+									: 'justify-center'
 							}`}
 						>
-							<div
-								className={`h-px flex-1 ${
-									isLight ? 'bg-[#1C1C1C]/10' : 'bg-white/10'
-								}`}
-							/>
-							<span className="font-antique-legacy text-base sm:text-[1.1rem]">
-								or
-							</span>
-							<div
-								className={`h-px flex-1 ${
-									isLight ? 'bg-[#1C1C1C]/10' : 'bg-white/10'
-								}`}
-							/>
+							{authMode === 'login' ? (
+								<button
+									type="button"
+									onClick={() => {
+										setAuthMode('reset');
+									}}
+									className={`transition ${mutedLinkColor}`}
+								>
+									Forgot password?
+								</button>
+							) : null}
+							<button
+								type="button"
+								onClick={() => {
+									setAuthMode((currentMode) => {
+										if (currentMode === 'signup') {
+											return 'login';
+										}
+
+										return 'signup';
+									});
+								}}
+								className={`transition ${mutedLinkColor}`}
+							>
+								{authMode === 'signup'
+									? 'Already have an account? Login'
+									: authMode === 'reset'
+										? 'Back to login'
+										: 'Create an account'}
+							</button>
 						</div>
 
-						<button
-							type="button"
-							onClick={handleGoogleLogin}
-							disabled={isSubmitting}
-							className={`flex h-[52px] w-full items-center justify-center gap-3 rounded-full text-base font-medium tracking-[-.02em] transition disabled:cursor-not-allowed disabled:opacity-60 sm:h-14 sm:text-[1.1rem] ${
-								isLight
-									? 'bg-[#1C1C1C]/5 text-[#1C1C1C] hover:bg-[#1C1C1C]/10'
-									: 'bg-white text-[#1C1C1C] hover:bg-white/90'
-							}`}
-						>
-							<GoogleIcon className="size-6 shrink-0" />
-							Continue with Google
-						</button>
+						{authMode !== 'reset' ? (
+							<>
+								<div
+									className={`my-6 flex items-center gap-3 ${
+										isLight
+											? 'text-[#1C1C1C]/35'
+											: 'text-white/35'
+									}`}
+								>
+									<div
+										className={`h-px flex-1 ${
+											isLight
+												? 'bg-[#1C1C1C]/10'
+												: 'bg-white/10'
+										}`}
+									/>
+									<span className="font-antique-legacy text-base sm:text-[1.1rem]">
+										or
+									</span>
+									<div
+										className={`h-px flex-1 ${
+											isLight
+												? 'bg-[#1C1C1C]/10'
+												: 'bg-white/10'
+										}`}
+									/>
+								</div>
+
+								<button
+									type="button"
+									onClick={handleGoogleLogin}
+									disabled={isSubmitting}
+									className={`flex h-[52px] w-full items-center justify-center gap-3 rounded-full text-base font-medium tracking-[-.02em] transition disabled:cursor-not-allowed disabled:opacity-60 sm:h-14 sm:text-[1.1rem] ${
+										isLight
+											? 'bg-[#1C1C1C]/5 text-[#1C1C1C] hover:bg-[#1C1C1C]/10'
+											: 'bg-white text-[#1C1C1C] hover:bg-white/90'
+									}`}
+								>
+									<GoogleIcon className="size-6 shrink-0" />
+									Continue with Google
+								</button>
+							</>
+						) : null}
 					</>
-				) : null}
+				)}
 			</div>
 		</div>,
 		document.body

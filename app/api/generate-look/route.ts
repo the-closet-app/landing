@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
 
-import { requireAuthenticatedUser } from '@/lib/firebase-auth-server';
+import {
+	getBearerToken,
+	requireAuthenticatedUser,
+} from '@/lib/firebase-auth-server';
+import {
+	formatStyleProfileForPrompt,
+	getServerStyleProfile,
+} from '@/lib/style-profile-server';
+import { classifyVisualIntent, type VisualIntent } from '@/lib/visual-intent';
 
 type GenerateLookRequestBody = {
 	context?: 'consumer' | 'stylist';
@@ -63,6 +71,7 @@ async function removeImageBackground({
 	const formData = new FormData();
 	formData.append('size', 'auto');
 	formData.append('format', 'png');
+	formData.append('type', 'person');
 	formData.append('image_file', new Blob([imageBuffer], { type: mimeType }));
 
 	const response = await fetch('https://api.remove.bg/v1.0/removebg', {
@@ -88,48 +97,87 @@ function buildLookPrompt({
 	prompt,
 	advice,
 	hasReferenceImage,
+	styleProfileContext,
+	visualIntent,
 }: {
 	context: 'consumer' | 'stylist';
 	prompt: string;
 	advice: string;
 	hasReferenceImage: boolean;
+	styleProfileContext: string;
+	visualIntent: VisualIntent;
 }) {
 	const audience =
 		context === 'stylist'
 			? 'for a professional stylist or fashion creator to use as client-ready visual direction'
 			: 'for a modest fashion user who wants practical styling inspiration';
-	const wantsModel =
-		/\b(model|person|people|wearing|worn|full[- ]body|on body|street style|editorial shot)\b/i.test(
-			`${prompt} ${advice}`
-		);
-	const outputStyle = wantsModel
-		? `Output style:
-- Show one full-body person/model wearing the outfit. The clothing must be worn on the body, not arranged as objects.
+
+	if (visualIntent !== 'outfit') {
+		const visualBriefs: Record<Exclude<VisualIntent, 'outfit'>, string> = {
+			alteration:
+				'showing a clear tailoring or alteration setup for the garment: measuring, pinning, hemming, adjusting fit, or marking the change in progress',
+			care: 'showing a practical garment-care setup: steaming, folding, storing, protecting, brushing, or maintaining the item with the correct tools',
+			cleaning:
+				'showing a practical fashion-care cleaning setup for the garment or footwear: appropriate brush, cloth, mild cleaner, towel, water bowl, or material-safe cleaning tools',
+			comparison:
+				'showing a clean visual comparison of the fashion items or outfit options, with the key differences easy to see at a glance',
+			repair: 'showing a practical repair setup for the garment or accessory: stitching, patching, reattaching a button, fixing a small tear, or mending the damaged area',
+		};
+
+		return `Create one polished fashion guidance visual ${audience}.
+
+Visual intent:
+- This is a ${visualIntent.replace('-', ' ')} visual, not outfit inspiration.
+- Create a task-specific image ${visualBriefs[visualIntent]}.
+- Prioritize clarity, usefulness, and realistic fashion-care details over editorial styling.
+- Show the relevant garment, footwear, accessory, fabric, tool, or hand action clearly.
+- If a person appears, show only neutral hands or a partial working view unless the user specifically asked for a worn outfit.
+- Do not create a person/model wearing a full outfit unless the user explicitly asked for outfit inspiration.
+- Do not create a flat-lay outfit board, unrelated outfit collage, shopping ad, mood board, or decorative scene.
+- Do not imply a specific gender, race, ethnicity, religion, body type, or identity.
+- Do not add readable text, logos, captions, UI, watermarks, labels, or shopping prices.
+- Use a clean, simple background or work surface. Keep the image compact and readable in a web chat response.
+
+User request:
+${prompt || 'Create a practical fashion guidance visual.'}
+
+CLAi guidance to visualize:
+${advice}
+
+${
+	hasReferenceImage
+		? 'Use the attached image only as a fashion reference for visible garments, colors, material, condition, damage, or care context. Do not recreate the person or body.'
+		: ''
+}`;
+	}
+
+	return `Create one polished modest-fashion outfit inspiration image ${audience}.
+
+Output style:
+- Show one real-looking full-body person/model wearing the outfit. The clothing must be worn on the body, not arranged as objects.
 - The full outfit should be clearly visible from head to toe, including the full head, hair, shoes, and accessories.
 - Do not crop the head, forehead, face, chin, hair, shoulders, hands, legs, shoes, or bag.
 - Use a zoomed-out fashion catalog composition. The complete model must fit inside the frame.
 - Leave at least 20% empty flat background margin above the head and below the feet, and 12% margin on the left and right.
 - Center the complete model in frame. If needed, make the model smaller rather than cropping any body part.
-- Use a realistic fashion catalog style with natural posing, but no close-up, portrait crop, studio backdrop, floor, or environmental lighting.
+- Use a realistic fashion catalog or editorial e-commerce style with natural posing.
+- Use a flat, solid #F47015 backdrop only as a removable production background. Do not make it part of the styling, lighting, outfit, prop, outline, rim, glow, shadow, or aura.
+- The person/model must be visually separated from the backdrop with clean natural edges so the background can be removed into a transparent cutout.
 - Do not create a flat-lay, outfit board, product grid, hanger shot, mannequin, or clothing-only image.
-- Do not imply a specific gender, size, religion, body type, or identity unless the user explicitly provided it.
-- Avoid sexualized posing, body emphasis, body judgment, or exaggerated proportions.`
-		: `Output style:
-- Editorial flat-lay or outfit-board composition on a clean neutral background.
-- Show garments, shoes, accessories, textures, and color relationships clearly.
-- Do not include people, faces, bodies, mannequins, body silhouettes, measurements, size labels, or identity cues.`;
+- Do not generate floating garments, separate accessories, or an outfit collage.
+- Do not imply a specific gender, race, ethnicity, religion, body type, or identity unless the user explicitly provided it.
+- Avoid sexualized posing, body emphasis, body judgment, exaggerated proportions, or stereotyped identity cues.
 
-	return `Create one polished modest-fashion outfit inspiration image ${audience}.
-
-${outputStyle}
-
-- Use a simple plain neutral studio background that contrasts with the full outfit and model. The background will be removed after generation.
-- Do not use a busy scene, room, wall texture, outdoor setting, props, readable text, logos, or shopping labels.
+- Do not use a busy scene, room, wall texture, outdoor setting, props, readable text, logos, shopping labels, or decorative background.
+- Do not add colored outlines, edge strokes, halos, glow, or colored rim artifacts around the person.
 - Keep the subject cleanly separated from the background with natural edges.
 - Keep it compact, realistic, tasteful, and easy to understand.
 - Do not add readable text, logos, captions, UI, watermarks, or shopping prices.
 - Optimize for confidence, practicality, repeat wear, and sustainability.
 - Image should be small enough for a web chat response, square aspect ratio, not overly detailed.
+
+Style profile:
+${styleProfileContext}
 
 User request:
 ${prompt || 'Create a modest fashion look inspiration image.'}
@@ -145,9 +193,10 @@ ${
 }
 
 export async function POST(request: Request) {
+	const idToken = getBearerToken(request);
 	const user = await requireAuthenticatedUser(request);
 
-	if (!user) {
+	if (!idToken || !user?.localId) {
 		return NextResponse.json(
 			{ error: 'Please log in to generate a look inspiration image.' },
 			{ status: 401 }
@@ -195,6 +244,21 @@ export async function POST(request: Request) {
 	}
 
 	try {
+		const visualIntent = classifyVisualIntent(prompt);
+		let styleProfileContext = formatStyleProfileForPrompt(null);
+
+		if (visualIntent === 'outfit') {
+			try {
+				const styleProfile = await getServerStyleProfile({
+					idToken,
+					uid: user.localId,
+				});
+				styleProfileContext = formatStyleProfileForPrompt(styleProfile);
+			} catch (error) {
+				console.error(error);
+			}
+		}
+
 		const input: GeminiInteractionInput[] = [
 			{
 				type: 'text',
@@ -203,6 +267,8 @@ export async function POST(request: Request) {
 					prompt,
 					advice,
 					hasReferenceImage: hasImage,
+					styleProfileContext,
+					visualIntent,
 				}),
 			},
 		];
@@ -265,6 +331,14 @@ export async function POST(request: Request) {
 			);
 		}
 
+		if (visualIntent !== 'outfit') {
+			return NextResponse.json({
+				imageUrl: `data:${mimeType};base64,${imageData}`,
+				sourceMimeType: mimeType,
+				visualIntent,
+			});
+		}
+
 		const cutoutImage = await removeImageBackground({
 			imageData,
 			mimeType,
@@ -273,6 +347,7 @@ export async function POST(request: Request) {
 		return NextResponse.json({
 			imageUrl: `data:image/png;base64,${cutoutImage.toString('base64')}`,
 			sourceMimeType: mimeType,
+			visualIntent,
 		});
 	} catch {
 		return NextResponse.json(

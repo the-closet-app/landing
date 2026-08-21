@@ -6,6 +6,12 @@ import { createPortal } from 'react-dom';
 
 import { ClaiMark } from '@/components/icons/ClaiMark';
 import { useToast } from '@/components/toast/ToastProvider';
+import {
+	getStyleProfileErrorMessage,
+	getStyleProfile,
+	saveStyleProfile,
+	type StyleProfileInput,
+} from '@/lib/style-profile';
 
 type ProfileModalProps = {
 	isOpen: boolean;
@@ -63,8 +69,14 @@ export function ProfileModal({
 	const isLight = variant === 'light';
 	const [usage, setUsage] = useState<DailyUsage | null>(null);
 	const [isLoadingUsage, setIsLoadingUsage] = useState(false);
+	const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+	const [isSavingProfile, setIsSavingProfile] = useState(false);
 	const [isSendingVerification, setIsSendingVerification] = useState(false);
 	const [isLoggingOut, setIsLoggingOut] = useState(false);
+	const [styleProfile, setStyleProfile] = useState<StyleProfileInput>({
+		gender: '',
+		race: '',
+	});
 	const isMounted = useSyncExternalStore(
 		subscribeToClient,
 		getClientSnapshot,
@@ -157,31 +169,70 @@ export function ProfileModal({
 		};
 	}, [isOpen, toast, user]);
 
+	useEffect(() => {
+		if (!isOpen || !user) {
+			return;
+		}
+
+		let isActive = true;
+		const currentUser = user;
+
+		async function loadProfile() {
+			setIsLoadingProfile(true);
+
+			try {
+				const profile = await getStyleProfile(currentUser);
+
+				if (isActive) {
+					setStyleProfile({
+						gender: profile?.gender ?? '',
+						race: profile?.race ?? '',
+					});
+				}
+			} catch {
+				if (isActive) {
+					toast.error('Unable to load your style profile right now.');
+				}
+			} finally {
+				if (isActive) {
+					setIsLoadingProfile(false);
+				}
+			}
+		}
+
+		void loadProfile();
+
+		return () => {
+			isActive = false;
+		};
+	}, [isOpen, toast, user]);
+
 	if (!isOpen || !isMounted || !user) {
 		return null;
 	}
 
+	const activeUser = user;
 	const modalTextColor = isLight ? 'text-[#1C1C1C]' : 'text-white';
 	const labelTextColor = isLight ? 'text-[#1C1C1C]/35' : 'text-white/20';
 	const valueTextColor = isLight ? 'text-[#1C1C1C]/80' : 'text-white/80';
+	const inputClassName = `h-[48px] rounded-[32px] px-5 font-antique-legacy text-base outline-none transition sm:h-[52px] sm:px-6 sm:text-[1.05rem] ${
+		isLight
+			? 'bg-[#1C1C1C]/5 text-[#1C1C1C] placeholder:text-[#1C1C1C]/35'
+			: 'bg-white/10 text-white placeholder:text-white/35'
+	}`;
 
-	async function handleResendVerification() {
-		if (!user) {
-			return;
-		}
+	// async function handleResendVerification() {
+	// 	setIsSendingVerification(true);
 
-		const currentUser = user;
-		setIsSendingVerification(true);
-
-		try {
-			await sendEmailVerification(currentUser);
-			toast.success('Verification email sent. Check your inbox.');
-		} catch {
-			toast.error('We could not send the verification email right now.');
-		} finally {
-			setIsSendingVerification(false);
-		}
-	}
+	// 	try {
+	// 		await sendEmailVerification(activeUser);
+	// 		toast.success('Verification email sent. Check your inbox.');
+	// 	} catch {
+	// 		toast.error('We could not send the verification email right now.');
+	// 	} finally {
+	// 		setIsSendingVerification(false);
+	// 	}
+	// }
 
 	async function handleLogout() {
 		setIsLoggingOut(true);
@@ -192,6 +243,26 @@ export function ProfileModal({
 		} finally {
 			setIsLoggingOut(false);
 		}
+	}
+
+	async function handleSaveStyleProfile() {
+		setIsSavingProfile(true);
+
+		try {
+			await saveStyleProfile(activeUser, styleProfile);
+			toast.success('Style profile saved.');
+		} catch (error) {
+			toast.error(getStyleProfileErrorMessage(error));
+		} finally {
+			setIsSavingProfile(false);
+		}
+	}
+
+	function updateStyleProfile(field: keyof StyleProfileInput, value: string) {
+		setStyleProfile((currentProfile) => ({
+			...currentProfile,
+			[field]: value,
+		}));
 	}
 
 	return createPortal(
@@ -251,19 +322,7 @@ export function ProfileModal({
 							{user.email}
 						</p>
 					</div>
-					<div>
-						<p
-							className={`text-[0.8rem] uppercase tracking-[.08em] ${labelTextColor}`}
-						>
-							Sign-in method
-						</p>
-						<p
-							className={`text-base tracking-[-.02em] sm:text-[1.1rem] ${valueTextColor}`}
-						>
-							{getProviderLabel(user)}
-						</p>
-					</div>
-					<div>
+					{/* <div>
 						<p
 							className={`text-[0.8rem] uppercase tracking-[.08em] ${labelTextColor}`}
 						>
@@ -288,7 +347,7 @@ export function ProfileModal({
 									: 'Resend verification email'}
 							</button>
 						) : null}
-					</div>
+					</div> */}
 					<div>
 						<p
 							className={`text-[0.8rem] uppercase tracking-[.08em] ${labelTextColor}`}
@@ -322,15 +381,80 @@ export function ProfileModal({
 							/>
 						</div>
 					</div>
+					<div className="border-t border-white/10 pt-4">
+						<h3
+							className={`text-[1.8rem] capatalize font-mackinac tracking-[-.02em] text-center`}
+						>
+							Style profile
+						</h3>
+						<div className="mt-4 flex flex-col gap-2">
+							<p className="mb-2 flex flex-col">
+								<label
+									className={`text-[0.8rem] mb-2 uppercase tracking-[.08em] ${labelTextColor}`}
+								>
+									Gender/style presentation
+								</label>
+								<input
+									type="text"
+									value={styleProfile.gender}
+									onChange={(event) =>
+										updateStyleProfile(
+											'gender',
+											event.target.value
+										)
+									}
+									disabled={isLoadingProfile}
+									className={inputClassName}
+									placeholder="e.g. femme, masc, neutral..."
+								/>
+							</p>
+							<p className="mb-2 flex flex-col">
+								<label
+									className={`text-[0.8rem] mb-2 uppercase tracking-[.08em] ${labelTextColor}`}
+								>
+									Race/ethnicity
+								</label>
+								<input
+									type="text"
+									value={styleProfile.race}
+									onChange={(event) =>
+										updateStyleProfile(
+											'race',
+											event.target.value
+										)
+									}
+									disabled={isLoadingProfile}
+									className={inputClassName}
+									placeholder="e.g. Black, South Asian, mixed..."
+								/>
+							</p>
+							
+							
+							<button
+								type="button"
+								onClick={handleSaveStyleProfile}
+								disabled={isLoadingProfile || isSavingProfile}
+								className="mt-3 h-[52px] w-full rounded-full bg-[#F47016] px-6 font-antique-legacy text-lg font-medium tracking-[-.02em] text-white transition hover:bg-[#F47016] disabled:cursor-not-allowed disabled:opacity-60 sm:h-14 sm:text-[1.2rem]"
+							>
+								{isSavingProfile
+									? 'Saving...'
+									: isLoadingProfile
+										? 'Loading...'
+										: 'Save style profile'}
+							</button>
+						</div>
+					</div>
 				</div>
-				<button
-					type="button"
-					onClick={handleLogout}
-					disabled={isLoggingOut}
-					className="mt-8 h-[52px] w-full rounded-full bg-[#F47016] px-6 font-antique-legacy text-lg font-medium tracking-[-.02em] text-white transition hover:bg-[#F47016] disabled:cursor-not-allowed disabled:opacity-60 sm:h-14 sm:text-[1.2rem]"
-				>
-					{isLoggingOut ? 'Logging out...' : 'Logout'}
-				</button>
+				<p className={`mt-1 text-[1rem] leading-[1.35] text-center tracking-[-.02em]`}>
+					<button
+						type="button"
+						onClick={handleLogout}
+						disabled={isLoggingOut}
+						className="mt-4 text-center text-[1rem] transition hover:text-[#F47016] disabled:cursor-not-allowed disabled:opacity-60 w-full"
+					>
+						{isLoggingOut ? 'Logging out...' : 'Logout'}
+					</button>
+				</p>
 			</div>
 		</div>,
 		document.body

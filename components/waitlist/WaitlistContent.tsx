@@ -1,12 +1,6 @@
 'use client';
 
-import {
-	doc,
-	getDoc,
-	serverTimestamp,
-	setDoc,
-	type DocumentData,
-} from 'firebase/firestore';
+import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import Image from 'next/image';
 import { FormEvent, useState } from 'react';
 
@@ -45,17 +39,13 @@ export function WaitlistContent({
 				'claiWaitlist',
 				encodeURIComponent(normalizedEmail)
 			);
-			const existingEntry = await getDoc(waitlistRef);
-			const waitlistData: DocumentData = {
+			const waitlistData = {
+				createdAt: serverTimestamp(),
 				email: normalizedEmail,
 				source: 'landing_waitlist',
 				status: 'joined',
 				updatedAt: serverTimestamp(),
 			};
-
-			if (!existingEntry.exists()) {
-				waitlistData.createdAt = serverTimestamp();
-			}
 
 			await setDoc(waitlistRef, waitlistData, { merge: true });
 			setEmail('');
