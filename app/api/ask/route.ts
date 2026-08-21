@@ -57,6 +57,7 @@ type GeminiResponse = {
 
 type RequestCategory =
 	| 'greeting_request'
+	| 'profile_detail_request'
 	| 'simple_request'
 	| 'significant_request'
 	| 'image_based_request'
@@ -100,7 +101,7 @@ const maxHistoryMessages = 24;
 const maxHistoryCharacters = 1200;
 
 const fashionSignals =
-	/\b(style|styling|outfit|wear|wardrobe|clothes|clothing|fashion|dress|dressed|dressing|attire|garment|shirt|trouser|pants|jeans|skirt|jacket|coat|blazer|shoe|shoes|trainer|trainers|sneaker|sneakers|boot|boots|heels|bag|accessor|jewelry|jewellery|color|colour|fit|fabric|textile|texture|layer|layers|modest|tailor|tailoring|alter|alteration|alterations|hem|hemming|sew|sewing|stitch|stitching|thread|needle|patch|patching|repair|mend|mending|tear|torn|rip|ripped|care|clean|cleaning|stain|stains|suede|leather|canvas|mesh|cashmere|sweater|jumper|occasion|look|looks)\b/i;
+	/\b(style|styling|outfit|wear|wardrobe|clothes|clothing|fashion|dress|dressed|dressing|attire|garment|shirt|top|tops|blouse|trouser|trousers|pants|jeans|skirt|jacket|coat|blazer|shoe|shoes|trainer|trainers|sneaker|sneakers|boot|boots|heels|sandals|bag|accessor|jewelry|jewellery|color|colour|fit|fabric|textile|texture|layer|layers|modest|tailor|tailoring|alter|alteration|alterations|hem|hemming|sew|sewing|stitch|stitching|thread|needle|patch|patching|repair|mend|mending|tear|torn|rip|ripped|care|clean|cleaning|stain|stains|suede|leather|canvas|mesh|cashmere|sweater|jumper|occasion|look|looks|pack|packing|packed|swimwear|sleepwear|undergarments)\b/i;
 
 const shoppingSignals =
 	/\b(buy|purchase|shop|shopping|worth it|should i get|should i buy|where can i find|recommend.*(?:brand|store|piece|item)|budget|price|cost|afford|dupe|alternative)\b/i;
@@ -109,10 +110,16 @@ const significantSignals =
 	/\b(wedding|interview|job interview|wimbledon|first date|date night|presentation|big presentation|speech|conference|gala|ceremony|funeral|graduation|photoshoot|photo shoot|campaign|client|meeting|important event|special occasion|black tie|formal|red carpet|launch event|networking)\b/i;
 
 const simpleSignals =
-	/\b(which|what|how|can|should)\b.*\b(go with|match|pair|style|wear|fix|repair|layer)\b/i;
+	/\b(which|what|how|can|should|need)\b.*\b(go with|match|pair|style|wear|fix|repair|layer|pack|packing|clothes|clothing|outfit|look)\b/i;
 
 const greetingSignals =
 	/^(hi|hello|hey|hiya|good morning|good afternoon|good evening|yo|sup|what'?s up|how are you|howdy)[.!?\s]*$/i;
+
+const profileAnswerSignals =
+	/\b(i am|i'm|im|my gender|female|woman|lady|male|man|masc|femme|neutral presentation|gender neutral|nonbinary|non-binary|prefer not to say|black|white|asian|south asian|east asian|middle eastern|arab|latina|latino|latinx|hispanic|mixed|biracial|african|caribbean|nigerian|ghanaian|kenyan|yoruba|igbo|hausa|ethnicity|race)\b/i;
+
+const profileFashionFollowUpSignals =
+	/\b(what if|how about|if i am|if i'm|if im|for a|as a)\b.*\b(woman|lady|female|man|male|femme|masc|neutral presentation|gender neutral|nonbinary|non-binary)\b/i;
 
 const imageAnalysisInstruction = `Image response rules:
 - Analyze the image as a modest-fashion styling assistant.
@@ -137,12 +144,43 @@ Refinement questions: one or two short questions only if needed.`;
 
 function classifyRequest({
 	hasImage,
+	history,
 	prompt,
 }: {
 	hasImage: boolean;
+	history?: AskRequestBody['history'];
 	prompt?: string;
 }): RequestCategory {
 	const request = prompt?.trim() ?? '';
+	const recentAssistantMessages = Array.isArray(history)
+		? [...history]
+				.reverse()
+				.filter(
+					(message) =>
+						message.role === 'assistant' &&
+						typeof message.content === 'string'
+				)
+				.slice(0, 8)
+				.map((message) => message.content ?? '')
+		: [];
+	const hasRecentProfileQuestion = recentAssistantMessages.some((message) =>
+		message.includes('Before I generate a person wearing')
+	);
+	const isProfileCorrection =
+		/\b(gender|race|ethnicity|presentation)\b/i.test(request) &&
+		/\b(you asked|already told|i said|i am|i'm|im|prefer not to say)\b/i.test(
+			request
+		);
+	const isAnsweringProfileQuestion =
+		(hasRecentProfileQuestion || isProfileCorrection) &&
+		profileAnswerSignals.test(request);
+	const hasFashionHistory = recentAssistantMessages.some(
+		(message) =>
+			fashionSignals.test(message) ||
+			message.includes('Generate look inspiration')
+	);
+	const isFashionProfileFollowUp =
+		hasFashionHistory && profileFashionFollowUpSignals.test(request);
 
 	if (hasImage) {
 		return 'image_based_request';
@@ -150,6 +188,14 @@ function classifyRequest({
 
 	if (greetingSignals.test(request)) {
 		return 'greeting_request';
+	}
+
+	if (isAnsweringProfileQuestion) {
+		return 'profile_detail_request';
+	}
+
+	if (isFashionProfileFollowUp) {
+		return 'simple_request';
 	}
 
 	if (
@@ -179,6 +225,16 @@ Behavior:
 - Invite the user to ask a fashion, styling, wardrobe, outfit, color, fit, shopping, occasion, garment-care, or personal-style question.
 - Do not use the out-of-scope boundary for greetings.
 - Do not give a long explanation.`;
+		case 'profile_detail_request':
+			return `Request category: Profile detail answer.
+Behavior:
+- The user is answering CLAi's optional visual profile question for generating a person wearing a look.
+- Treat gender, style presentation, race, ethnicity, and "prefer not to say" answers as fashion-chat context, not out-of-scope.
+- Acknowledge briefly that you have the detail.
+- Do not apologize unless you previously contradicted the user.
+- Do not repeat the same profile question.
+- If another requested profile detail is still missing, ask only for that missing detail.
+- If enough detail is available, tell the user they can tap "Generate look inspiration" again.`;
 		case 'image_based_request':
 			return `Request category: Image-based request.
 Behavior:
@@ -223,6 +279,11 @@ function getDiagnosticQuestionPolicy(category: RequestCategory) {
 			return `Diagnostic question policy:
 - Ask no diagnostic questions yet.
 - Respond with a short greeting and invite a fashion question.`;
+		case 'profile_detail_request':
+			return `Diagnostic question policy:
+- Do not ask broad diagnostic questions.
+- Only ask for a missing visual profile detail if it is still needed for generating a person wearing the look.
+- Do not repeat details the user already provided in the current chat.`;
 		case 'simple_request':
 			return `Diagnostic question policy:
 - Ask 0-1 clarifying question.
@@ -305,7 +366,10 @@ function getCurrentChatMemoryPolicy() {
 - Treat the previous messages in this same chat as active memory.
 - If the user already answered gender presentation, race/ethnicity, budget, occasion, weather, style preference, wardrobe ownership, comfort preference, desired impression, dress code, or shopping intent earlier in this chat, use that answer and do not ask for it again.
 - Do not repeat a diagnostic question unless the user gave a vague answer and the missing detail is still essential.
-- If the user corrects a detail, use the newest answer.
+- If the current user message corrects, changes, or tests a profile detail, use the newest user message as the source of truth.
+- Current-chat details override saved style profile details when they conflict.
+- If the user asks "what if I am..." or "how about if I am..." with a gender or presentation, revise the fashion advice for that presentation immediately.
+- Never keep using an older masc, femme, neutral, gender, race, budget, occasion, or weather assumption after the user gives a newer one.
 - If a detail is available from the style profile and has not been contradicted in chat, use the style profile detail.
 - If the user says "I already told you" or similar, acknowledge briefly and continue using the existing detail.`;
 }
@@ -326,6 +390,12 @@ function getAnswerFormatPolicy(category: RequestCategory) {
 - One short greeting only.
 - Invite the user to ask a fashion question.
 - Do not use headings.`;
+		case 'profile_detail_request':
+			return `Answer format:
+- One or two short sentences only.
+- No headings, bullets, markdown bold, or long explanation.
+- Do not add a generated-image description.
+- Do not include the fashion-only boundary message.`;
 		case 'out_of_scope_request':
 			return `Answer format:
 - Use only the exact sentence: "I am CLAi, I only give fashion advice."
@@ -373,6 +443,93 @@ function getNeutralDefaultPolicy() {
 - If the missing detail does not materially change the recommendation, give neutral, flexible advice with options across presentations and contexts.
 - Use language such as "person", "client", "user", "they", "outfit", "piece", and "look" until the user provides a more specific signal.
 - Once the user provides a detail, use it and do not re-ask in the same chat.`;
+}
+
+function getCurrentRequestOverridePolicy(prompt?: string) {
+	const request = prompt?.toLowerCase() ?? '';
+	const presentationSignals = [
+		{
+			label: 'man / male presentation',
+			pattern: /\b(man|male|masc|masculine)\b/i,
+		},
+		{
+			label: 'woman / female presentation',
+			pattern: /\b(woman|female|lady|femme|feminine)\b/i,
+		},
+		{
+			label: 'neutral / non-binary presentation',
+			pattern:
+				/\b(neutral presentation|gender neutral|nonbinary|non-binary)\b/i,
+		},
+	].find(({ pattern }) => pattern.test(request));
+	const raceSignals = [
+		{
+			label: 'Black race / ethnicity',
+			pattern: /\b(black|black african|african|caribbean)\b/i,
+		},
+		{
+			label: 'White race / ethnicity',
+			pattern: /\b(white|caucasian|european)\b/i,
+		},
+		{
+			label: 'Asian race / ethnicity',
+			pattern: /\b(asian|south asian|east asian)\b/i,
+		},
+		{
+			label: 'Middle Eastern or Arab race / ethnicity',
+			pattern: /\b(middle eastern|arab)\b/i,
+		},
+		{
+			label: 'Latina / Latino / Latinx or Hispanic race / ethnicity',
+			pattern: /\b(latina|latino|latinx|hispanic)\b/i,
+		},
+		{
+			label: 'mixed or biracial race / ethnicity',
+			pattern: /\b(mixed|biracial)\b/i,
+		},
+		{
+			label: 'Nigerian ethnicity / cultural background',
+			pattern: /\b(nigerian|yoruba|igbo|hausa)\b/i,
+		},
+		{
+			label: 'Ghanaian ethnicity / cultural background',
+			pattern: /\bghanaian\b/i,
+		},
+		{
+			label: 'Kenyan ethnicity / cultural background',
+			pattern: /\bkenyan\b/i,
+		},
+		{
+			label: 'undisclosed race / ethnicity',
+			pattern: /\bprefer not to say\b/i,
+		},
+	].find(({ pattern }) => pattern.test(request));
+	const hasRaceIdentityLead =
+		/\b(i am|i'm|im|as a|for a|my race is|my ethnicity is|race:|ethnicity:)\b/i.test(
+			request
+		);
+	const raceOverride = hasRaceIdentityLead ? raceSignals : undefined;
+
+	const overrideLines = [
+		presentationSignals
+			? `The current user message explicitly asks for ${presentationSignals.label}.`
+			: null,
+		raceOverride
+			? `The current user message explicitly states ${raceOverride.label}.`
+			: null,
+	].filter(Boolean);
+
+	if (!overrideLines.length) {
+		return `Current user message priority:
+- The current user message is the newest source of truth.
+- If it conflicts with earlier chat history or saved style profile details, follow the current user message.`;
+	}
+
+	return `Current user message priority:
+- ${overrideLines.join('\n- ')}
+- For this answer, use the current message details and do not use any older conflicting woman, man, femme, masc, neutral, race, ethnicity, saved-profile, or prior-chat details.
+- Use race or ethnicity only for visual representation or explicitly relevant cultural fashion context. Do not infer body type, personality, budget, religion, or style from it.
+- Revise the previous fashion advice for the current details instead of repeating an older one.`;
 }
 
 function getRegionalContext(request: Request) {
@@ -487,7 +644,11 @@ export async function POST(request: Request) {
 	const image = body.image;
 	const hasImage = Boolean(image?.data && image.mimeType);
 	const historyContents = getHistoryContents(body.history);
-	const requestCategory = classifyRequest({ hasImage, prompt });
+	const requestCategory = classifyRequest({
+		hasImage,
+		history: body.history,
+		prompt,
+	});
 	let styleProfileContext = formatStyleProfileForPrompt(null);
 
 	if (!prompt && !hasImage) {
@@ -524,7 +685,9 @@ export async function POST(request: Request) {
 				requestCategory
 			)}\n\n${getAnswerFormatPolicy(
 				requestCategory
-			)}\n\n${getDiagnosticQuestionBank()}\n\n${getCurrentChatMemoryPolicy()}\n\n${getFashionCareScopePolicy()}\n\n${getNeutralDefaultPolicy()}\n\n${styleProfileContext}\n\n${
+			)}\n\n${getDiagnosticQuestionBank()}\n\n${getCurrentChatMemoryPolicy()}\n\n${getCurrentRequestOverridePolicy(
+				prompt
+			)}\n\n${getFashionCareScopePolicy()}\n\n${getNeutralDefaultPolicy()}\n\n${styleProfileContext}\n\n${
 				hasImage ? `${imageAnalysisInstruction}\n\n` : ''
 			}Regional context: ${getRegionalContext(request)}`,
 		},

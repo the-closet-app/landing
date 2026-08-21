@@ -14,6 +14,7 @@ type GenerateLookRequestBody = {
 	context?: 'consumer' | 'stylist';
 	prompt?: string;
 	advice?: string;
+	visualProfileContext?: string;
 	image?: {
 		data?: string;
 		mimeType?: string;
@@ -179,6 +180,11 @@ Output style:
 Style profile:
 ${styleProfileContext}
 
+Profile precedence:
+- If current chat visual profile details conflict with saved style profile details, use the current chat details.
+- The newest user-provided gender, presentation, race, or ethnicity detail is the source of truth.
+- Do not use an older masc, femme, neutral, race, ethnicity, or presentation detail after the user gives a newer one.
+
 User request:
 ${prompt || 'Create a modest fashion look inspiration image.'}
 
@@ -226,6 +232,7 @@ export async function POST(request: Request) {
 	const context = body.context === 'stylist' ? 'stylist' : 'consumer';
 	const prompt = body.prompt?.trim() ?? '';
 	const advice = body.advice?.trim() ?? '';
+	const visualProfileContext = body.visualProfileContext?.trim() ?? '';
 	const image = body.image;
 	const hasImage = Boolean(image?.data && image.mimeType);
 
@@ -256,6 +263,10 @@ export async function POST(request: Request) {
 				styleProfileContext = formatStyleProfileForPrompt(styleProfile);
 			} catch (error) {
 				console.error(error);
+			}
+
+			if (visualProfileContext) {
+				styleProfileContext = `${styleProfileContext}\n\n${visualProfileContext}`;
 			}
 		}
 

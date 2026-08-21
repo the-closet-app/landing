@@ -60,6 +60,7 @@ type ChatMessage = {
 	imageMimeType?: string;
 	imageName?: string;
 	imagePreviewUrl?: string;
+	suppressGenerateVisual?: boolean;
 };
 
 type SavedChatSummary = {
@@ -145,18 +146,188 @@ function applyFashionTranscriptCorrections(transcript: string) {
 	);
 }
 
-function getMissingVisualProfileFields(profile: StyleProfileInput | null) {
+function extractInlineVisualProfile(messages: ChatMessage[]) {
+	const userMessages = messages
+		.filter((message) => message.role === 'user')
+		.map((message) => {
+			const originalIndex = messages.findIndex(
+				(chatMessage) => chatMessage.id === message.id
+			);
+			const previousAssistantMessage = [...messages]
+				.slice(0, originalIndex)
+				.reverse()
+				.find((chatMessage) => chatMessage.role === 'assistant');
+
+			return {
+				content: message.content.toLowerCase(),
+				isAnsweringVisualProfileQuestion: Boolean(
+					previousAssistantMessage?.content.startsWith(
+						'Before I generate a person wearing the look'
+					)
+				),
+			};
+		})
+		.reverse();
+
+	const genderSignals = [
+		'i am a lady',
+		"i'm a lady",
+		'im a lady',
+		'i am female',
+		"i'm female",
+		'im female',
+		'i am a woman',
+		"i'm a woman",
+		'im a woman',
+		'i am a man',
+		"i'm a man",
+		'im a man',
+		'i am male',
+		"i'm male",
+		'im male',
+		'female',
+		'lady',
+		'woman',
+		'male',
+		'man',
+		'femme',
+		'masc',
+		'neutral presentation',
+		'gender neutral',
+		'nonbinary',
+		'non-binary',
+		'prefer not to say',
+	];
+
+	const raceSignals = [
+		'black',
+		'white',
+		'asian',
+		'south asian',
+		'east asian',
+		'middle eastern',
+		'arab',
+		'latina',
+		'latino',
+		'latinx',
+		'hispanic',
+		'mixed',
+		'biracial',
+		'african',
+		'caribbean',
+		'nigerian',
+		'ghanaian',
+		'kenyan',
+		'yoruba',
+		'igbo',
+		'hausa',
+		'prefer not to say',
+	];
+
+	const identityLeadPattern =
+		/\b(i am|i'm|im|as a|for a|my race is|my ethnicity is|race:|ethnicity:)\b/;
+
+	function findRaceSignal(message: {
+		content: string;
+		isAnsweringVisualProfileQuestion: boolean;
+	}) {
+		if (
+			!message.isAnsweringVisualProfileQuestion &&
+			!identityLeadPattern.test(message.content)
+		) {
+			return undefined;
+		}
+
+		return raceSignals.find((signal) => message.content.includes(signal));
+	}
+
+	const gender = userMessages.reduce<string | undefined>(
+		(foundGender, message) =>
+			foundGender ??
+			genderSignals.find((signal) => message.content.includes(signal)),
+		undefined
+	);
+
+	const race = userMessages.reduce<string | undefined>(
+		(foundRace, message) => foundRace ?? findRaceSignal(message),
+		undefined
+	);
+
+	return {
+		gender,
+		race,
+	};
+}
+
+function getMissingVisualProfileFieldsFromChat({
+	inlineProfile,
+	savedProfile,
+}: {
+	inlineProfile: ReturnType<typeof extractInlineVisualProfile>;
+	savedProfile: StyleProfileInput | null;
+}) {
 	const missingFields: string[] = [];
 
-	if (!profile?.gender?.trim()) {
+	if (!savedProfile?.gender?.trim() && !inlineProfile.gender) {
 		missingFields.push('gender or style presentation');
 	}
 
-	if (!profile?.race?.trim()) {
+	if (!savedProfile?.race?.trim() && !inlineProfile.race) {
 		missingFields.push('race or ethnicity');
 	}
 
 	return missingFields;
+}
+
+function getInlineVisualProfileContext(
+	inlineProfile: ReturnType<typeof extractInlineVisualProfile>
+) {
+	const details = [
+		inlineProfile.gender
+			? `Gender / presentation from this chat: ${inlineProfile.gender}`
+			: null,
+		inlineProfile.race
+			? `Race / ethnicity from this chat: ${inlineProfile.race}`
+			: null,
+	].filter(Boolean);
+
+	return details.length
+		? `Current chat visual profile details:\n- ${details.join('\n- ')}`
+		: '';
+}
+
+function getVisualProfileQuestion(fields: string[]) {
+	return `Before I generate a person wearing the look, tell me your ${fields.join(
+		', '
+	)}. These are optional, and you can say "prefer not to say" for any of them. Example: "neutral presentation, Black."`;
+}
+
+function appendVisualProfileQuestion(
+	currentMessages: ChatMessage[],
+	missingProfileFields: string[]
+) {
+	const content = getVisualProfileQuestion(missingProfileFields);
+	const hasExistingQuestion = currentMessages.some(
+		(message) =>
+			message.role === 'assistant' &&
+			message.content.startsWith(
+				'Before I generate a person wearing the look'
+			)
+	);
+
+	if (hasExistingQuestion) {
+		return currentMessages;
+	}
+
+	return [
+		...currentMessages,
+		{
+			id: crypto.randomUUID(),
+			role: 'assistant' as const,
+			content,
+			suppressGenerateVisual: true,
+		},
+	];
 }
 
 function loadImage(dataUrl: string) {
@@ -739,6 +910,11 @@ export function Ask({ variant = 'dark' }: AskProps) {
 					imageMimeType: message.imageMimeType,
 					imageName: message.imageName,
 					role: message.role,
+					suppressGenerateVisual:
+						message.role === 'assistant' &&
+						message.content.startsWith(
+							'Before I generate a person wearing the look'
+						),
 				}))
 			);
 			setPromptValue('');
@@ -865,20 +1041,23 @@ export function Ask({ variant = 'dark' }: AskProps) {
 				if (visualIntent === 'outfit') {
 					try {
 						const styleProfile = await getStyleProfile(user);
+						const inlineProfile = extractInlineVisualProfile([
+							...messages,
+							userMessage,
+						]);
 						const missingProfileFields =
-							getMissingVisualProfileFields(styleProfile);
+							getMissingVisualProfileFieldsFromChat({
+								inlineProfile,
+								savedProfile: styleProfile,
+							});
 
 						if (missingProfileFields.length) {
-							setMessages((currentMessages) => [
-								...currentMessages,
-								{
-									id: crypto.randomUUID(),
-									role: 'assistant',
-									content: `Before I generate a person wearing the look, tell me your ${missingProfileFields.join(
-										', '
-									)}. These are optional, and you can say "prefer not to say" for any of them. Example: "neutral presentation, Black."`,
-								},
-							]);
+							setMessages((currentMessages) =>
+								appendVisualProfileQuestion(
+									currentMessages,
+									missingProfileFields
+								)
+							);
 							return;
 						}
 					} catch {
@@ -901,6 +1080,12 @@ export function Ask({ variant = 'dark' }: AskProps) {
 						body: JSON.stringify({
 							advice: data.answer,
 							context: activeContext,
+							visualProfileContext: getInlineVisualProfileContext(
+								extractInlineVisualProfile([
+									...messages,
+									userMessage,
+								])
+							),
 							image: outgoingImage
 								? {
 										data: outgoingImage.data,
@@ -997,20 +1182,20 @@ export function Ask({ variant = 'dark' }: AskProps) {
 		if (visualIntent === 'outfit') {
 			try {
 				const styleProfile = await getStyleProfile(user);
+				const inlineProfile = extractInlineVisualProfile(messages);
 				const missingProfileFields =
-					getMissingVisualProfileFields(styleProfile);
+					getMissingVisualProfileFieldsFromChat({
+						inlineProfile,
+						savedProfile: styleProfile,
+					});
 
 				if (missingProfileFields.length) {
-					setMessages((currentMessages) => [
-						...currentMessages,
-						{
-							id: crypto.randomUUID(),
-							role: 'assistant',
-							content: `Before I generate a person wearing the look, tell me your ${missingProfileFields.join(
-								', '
-							)}. These are optional, and you can say "prefer not to say" for any of them. Example: "neutral presentation, Black."`,
-						},
-					]);
+					setMessages((currentMessages) =>
+						appendVisualProfileQuestion(
+							currentMessages,
+							missingProfileFields
+						)
+					);
 					setIsChatOpen(true);
 					return;
 				}
@@ -1035,6 +1220,9 @@ export function Ask({ variant = 'dark' }: AskProps) {
 				body: JSON.stringify({
 					advice: assistantMessage.content,
 					context: activeContext,
+					visualProfileContext: getInlineVisualProfileContext(
+						extractInlineVisualProfile(messages)
+					),
 					image:
 						userMessage?.imageData && userMessage.imageMimeType
 							? {
@@ -1291,7 +1479,7 @@ export function Ask({ variant = 'dark' }: AskProps) {
 						</div>
 						<div
 							ref={chatScrollRef}
-							className="scrollbar-none mx-auto flex w-[min(94vw,920px)] flex-1 flex-col space-y-5 overflow-y-auto pb-6 pt-16 sm:space-y-6 sm:pb-8 sm:pt-24"
+							className="scrollbar-none mx-auto flex w-[min(94vw,920px)] flex-1 flex-col space-y-5 overflow-y-auto pb-6 pt-28 sm:space-y-6 sm:pb-8 sm:pt-24"
 						>
 							{messages.map((message, messageIndex) => {
 								const previousUserMessage = messages
@@ -1430,6 +1618,7 @@ export function Ask({ variant = 'dark' }: AskProps) {
 											{message.role === 'assistant' &&
 											message.content !==
 												'CLAi is thinking...' &&
+											!message.suppressGenerateVisual &&
 											!isOnlyOutOfScopeFashionResponse(
 												message.content
 											) &&
