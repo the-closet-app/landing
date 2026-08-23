@@ -5,13 +5,11 @@ type FirestoreField = {
 type FirestoreDocument = {
 	fields?: {
 		gender?: FirestoreField;
-		race?: FirestoreField;
 	};
 };
 
 export type ServerStyleProfile = {
 	gender?: string;
-	race?: string;
 };
 
 const collectionName = 'claiUserProfiles';
@@ -38,16 +36,15 @@ export function formatStyleProfileForPrompt(
 	profile: ServerStyleProfile | null
 ) {
 	if (!profile) {
-		return 'No optional style profile has been provided. Do not assume gender, race, ethnicity, body type, budget, culture, age, or style identity.';
+		return 'No optional style profile has been provided. Do not assume gender, body type, budget, culture, age, or style identity.';
 	}
 
 	const details = [
 		profile.gender ? `Gender / presentation: ${profile.gender}` : null,
-		profile.race ? `Race / ethnicity: ${profile.race}` : null,
 	].filter(Boolean);
 
 	if (!details.length) {
-		return 'The user skipped the optional style profile. Do not assume gender, race, ethnicity, body type, budget, culture, age, or style identity.';
+		return 'The user skipped the optional style profile. Do not assume gender, body type, budget, culture, age, or style identity.';
 	}
 
 	return `Optional user style profile provided by the user. Use only these supplied details, and do not infer anything beyond them:\n- ${details.join('\n- ')}`;
@@ -78,6 +75,5 @@ export async function getServerStyleProfile({
 
 	return {
 		gender: getStringValue(data.fields?.gender),
-		race: getStringValue(data.fields?.race),
 	};
 }

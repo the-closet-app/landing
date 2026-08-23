@@ -5,16 +5,15 @@ import {
 	requireAuthenticatedUser,
 } from '@/lib/firebase-auth-server';
 import {
-	formatStyleProfileForPrompt,
-	getServerStyleProfile,
-} from '@/lib/style-profile-server';
+	getDailyMessageUsage,
+	incrementDailyMessageUsage,
+} from '@/lib/daily-usage-server';
 import { classifyVisualIntent, type VisualIntent } from '@/lib/visual-intent';
 
 type GenerateLookRequestBody = {
 	context?: 'consumer' | 'stylist';
 	prompt?: string;
 	advice?: string;
-	visualProfileContext?: string;
 	image?: {
 		data?: string;
 		mimeType?: string;
@@ -55,57 +54,17 @@ type GeminiInteractionInput =
 
 const imageModel = process.env.GEMINI_IMAGE_MODEL ?? 'gemini-3.1-flash-image';
 
-async function removeImageBackground({
-	imageData,
-	mimeType,
-}: {
-	imageData: string;
-	mimeType: string;
-}) {
-	const removeBgApiKey = process.env.REMOVE_BG_API_KEY;
-
-	if (!removeBgApiKey) {
-		throw new Error('REMOVE_BG_API_KEY is not configured.');
-	}
-
-	const imageBuffer = Buffer.from(imageData, 'base64');
-	const formData = new FormData();
-	formData.append('size', 'auto');
-	formData.append('format', 'png');
-	formData.append('type', 'person');
-	formData.append('image_file', new Blob([imageBuffer], { type: mimeType }));
-
-	const response = await fetch('https://api.remove.bg/v1.0/removebg', {
-		method: 'POST',
-		headers: {
-			'X-Api-Key': removeBgApiKey,
-		},
-		body: formData,
-	});
-
-	if (!response.ok) {
-		const errorText = await response.text();
-		throw new Error(
-			errorText || 'remove.bg could not remove the image background.'
-		);
-	}
-
-	return Buffer.from(await response.arrayBuffer());
-}
-
 function buildLookPrompt({
 	context,
 	prompt,
 	advice,
 	hasReferenceImage,
-	styleProfileContext,
 	visualIntent,
 }: {
 	context: 'consumer' | 'stylist';
 	prompt: string;
 	advice: string;
 	hasReferenceImage: boolean;
-	styleProfileContext: string;
 	visualIntent: VisualIntent;
 }) {
 	const audience =
@@ -131,9 +90,9 @@ Visual intent:
 - This is a ${visualIntent.replace('-', ' ')} visual, not outfit inspiration.
 - Create a task-specific image ${visualBriefs[visualIntent]}.
 - Prioritize clarity, usefulness, and realistic fashion-care details over editorial styling.
-- Show the relevant garment, footwear, accessory, fabric, tool, or hand action clearly.
-- If a person appears, show only neutral hands or a partial working view unless the user specifically asked for a worn outfit.
-- Do not create a person/model wearing a full outfit unless the user explicitly asked for outfit inspiration.
+- Show the relevant garment, footwear, accessory, fabric, or tool clearly.
+- Do not show a person, model, mannequin, face, body, hand, skin, or partial human figure.
+- Do not create a person/model wearing a full outfit.
 - Do not create a flat-lay outfit board, unrelated outfit collage, shopping ad, mood board, or decorative scene.
 - Do not imply a specific gender, race, ethnicity, religion, body type, or identity.
 - Do not add readable text, logos, captions, UI, watermarks, labels, or shopping prices.
@@ -155,35 +114,20 @@ ${
 	return `Create one polished modest-fashion outfit inspiration image ${audience}.
 
 Output style:
-- Show one real-looking full-body person/model wearing the outfit. The clothing must be worn on the body, not arranged as objects.
-- The full outfit should be clearly visible from head to toe, including the full head, hair, shoes, and accessories.
-- Do not crop the head, forehead, face, chin, hair, shoulders, hands, legs, shoes, or bag.
-- Use a zoomed-out fashion catalog composition. The complete model must fit inside the frame.
-- Leave at least 20% empty flat background margin above the head and below the feet, and 12% margin on the left and right.
-- Center the complete model in frame. If needed, make the model smaller rather than cropping any body part.
-- Use a realistic fashion catalog or editorial e-commerce style with natural posing.
-- Use a flat, solid #F47015 backdrop only as a removable production background. Do not make it part of the styling, lighting, outfit, prop, outline, rim, glow, shadow, or aura.
-- The person/model must be visually separated from the backdrop with clean natural edges so the background can be removed into a transparent cutout.
-- Do not create a flat-lay, outfit board, product grid, hanger shot, mannequin, or clothing-only image.
-- Do not generate floating garments, separate accessories, or an outfit collage.
-- Do not imply a specific gender, race, ethnicity, religion, body type, or identity unless the user explicitly provided it.
-- Avoid sexualized posing, body emphasis, body judgment, exaggerated proportions, or stereotyped identity cues.
-
-- Do not use a busy scene, room, wall texture, outdoor setting, props, readable text, logos, shopping labels, or decorative background.
-- Do not add colored outlines, edge strokes, halos, glow, or colored rim artifacts around the person.
-- Keep the subject cleanly separated from the background with natural edges.
+- Show only the recommended clothing, footwear, bags, jewelry, and accessories.
+- Use a polished flat-lay, product-board, capsule wardrobe, or editorial wardrobe layout.
+- Arrange the items clearly so the user can understand the recommended wear without needing a model.
+- Do not show any person, model, mannequin, face, body, hand, skin, or partial human figure.
+- Do not show clothing worn on a body.
+- Do not imply race, ethnicity, religion, body type, age, or identity.
+- Do not create a hanger shot unless the garment naturally needs one for clarity.
+- Do not use a busy room, outdoor scene, readable text, logos, shopping labels, or decorative background.
+- Do not add colored outlines, halos, glow, or rim artifacts.
+- Use a clean, simple background that works well inside a web chat response.
 - Keep it compact, realistic, tasteful, and easy to understand.
 - Do not add readable text, logos, captions, UI, watermarks, or shopping prices.
 - Optimize for confidence, practicality, repeat wear, and sustainability.
 - Image should be small enough for a web chat response, square aspect ratio, not overly detailed.
-
-Style profile:
-${styleProfileContext}
-
-Profile precedence:
-- If current chat visual profile details conflict with saved style profile details, use the current chat details.
-- The newest user-provided gender, presentation, race, or ethnicity detail is the source of truth.
-- Do not use an older masc, femme, neutral, race, ethnicity, or presentation detail after the user gives a newer one.
 
 User request:
 ${prompt || 'Create a modest fashion look inspiration image.'}
@@ -193,7 +137,7 @@ ${advice}
 
 ${
 	hasReferenceImage
-		? 'Use the attached image only as a fashion reference for visible garments, colors, textures, and styling direction. Do not recreate the person or body.'
+		? 'Use the attached image only as a fashion reference for visible garments, colors, textures, and styling direction. Do not recreate any person or body.'
 		: ''
 }`;
 }
@@ -218,6 +162,30 @@ export async function POST(request: Request) {
 		);
 	}
 
+	let usage: Awaited<ReturnType<typeof getDailyMessageUsage>>;
+
+	try {
+		usage = await getDailyMessageUsage({
+			idToken,
+			uid: user.localId,
+		});
+	} catch {
+		return NextResponse.json(
+			{ error: 'Unable to check your daily message usage.' },
+			{ status: 502 }
+		);
+	}
+
+	if (usage.used >= usage.limit) {
+		return NextResponse.json(
+			{
+				error: `You have used all ${usage.limit} CLAi messages for today.`,
+				usage,
+			},
+			{ status: 429 }
+		);
+	}
+
 	let body: GenerateLookRequestBody;
 
 	try {
@@ -232,7 +200,6 @@ export async function POST(request: Request) {
 	const context = body.context === 'stylist' ? 'stylist' : 'consumer';
 	const prompt = body.prompt?.trim() ?? '';
 	const advice = body.advice?.trim() ?? '';
-	const visualProfileContext = body.visualProfileContext?.trim() ?? '';
 	const image = body.image;
 	const hasImage = Boolean(image?.data && image.mimeType);
 
@@ -252,23 +219,6 @@ export async function POST(request: Request) {
 
 	try {
 		const visualIntent = classifyVisualIntent(prompt);
-		let styleProfileContext = formatStyleProfileForPrompt(null);
-
-		if (visualIntent === 'outfit') {
-			try {
-				const styleProfile = await getServerStyleProfile({
-					idToken,
-					uid: user.localId,
-				});
-				styleProfileContext = formatStyleProfileForPrompt(styleProfile);
-			} catch (error) {
-				console.error(error);
-			}
-
-			if (visualProfileContext) {
-				styleProfileContext = `${styleProfileContext}\n\n${visualProfileContext}`;
-			}
-		}
 
 		const input: GeminiInteractionInput[] = [
 			{
@@ -278,7 +228,6 @@ export async function POST(request: Request) {
 					prompt,
 					advice,
 					hasReferenceImage: hasImage,
-					styleProfileContext,
 					visualIntent,
 				}),
 			},
@@ -342,22 +291,15 @@ export async function POST(request: Request) {
 			);
 		}
 
-		if (visualIntent !== 'outfit') {
-			return NextResponse.json({
-				imageUrl: `data:${mimeType};base64,${imageData}`,
-				sourceMimeType: mimeType,
-				visualIntent,
-			});
-		}
-
-		const cutoutImage = await removeImageBackground({
-			imageData,
-			mimeType,
+		const nextUsage = await incrementDailyMessageUsage({
+			idToken,
+			uid: user.localId,
 		});
 
 		return NextResponse.json({
-			imageUrl: `data:image/png;base64,${cutoutImage.toString('base64')}`,
+			imageUrl: `data:${mimeType};base64,${imageData}`,
 			sourceMimeType: mimeType,
+			usage: nextUsage,
 			visualIntent,
 		});
 	} catch {

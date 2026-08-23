@@ -13,7 +13,6 @@ import { getFirebaseDb } from '@/lib/firebase';
 
 export type StyleProfileInput = {
 	gender?: string;
-	race?: string;
 };
 
 export type StyleProfile = StyleProfileInput & {
@@ -30,7 +29,6 @@ function cleanProfileValue(value?: string) {
 export function normalizeStyleProfile(profile: StyleProfileInput) {
 	return {
 		gender: cleanProfileValue(profile.gender),
-		race: cleanProfileValue(profile.race),
 	};
 }
 
@@ -45,7 +43,7 @@ function removeUndefinedValues(profile: StyleProfileInput) {
 export function hasStyleProfileValue(profile: StyleProfileInput) {
 	const normalized = normalizeStyleProfile(profile);
 
-	return Boolean(normalized.gender || normalized.race);
+	return Boolean(normalized.gender);
 }
 
 export async function getStyleProfile(user: User) {
@@ -69,6 +67,7 @@ export async function saveStyleProfile(user: User, profile: StyleProfileInput) {
 		{
 			...cleanedProfile,
 			bodyType: deleteField(),
+			race: deleteField(),
 			email: user.email ?? null,
 			name: user.displayName ?? null,
 			updatedAt: serverTimestamp(),

@@ -116,7 +116,7 @@ const greetingSignals =
 	/^(hi|hello|hey|hiya|good morning|good afternoon|good evening|yo|sup|what'?s up|how are you|howdy)[.!?\s]*$/i;
 
 const profileAnswerSignals =
-	/\b(i am|i'm|im|my gender|female|woman|lady|male|man|masc|femme|neutral presentation|gender neutral|nonbinary|non-binary|prefer not to say|black|white|asian|south asian|east asian|middle eastern|arab|latina|latino|latinx|hispanic|mixed|biracial|african|caribbean|nigerian|ghanaian|kenyan|yoruba|igbo|hausa|ethnicity|race)\b/i;
+	/\b(i am|i'm|im|my gender|female|woman|lady|male|man|masc|femme|neutral presentation|gender neutral|nonbinary|non-binary|prefer not to say)\b/i;
 
 const profileFashionFollowUpSignals =
 	/\b(what if|how about|if i am|if i'm|if im|for a|as a)\b.*\b(woman|lady|female|man|male|femme|masc|neutral presentation|gender neutral|nonbinary|non-binary)\b/i;
@@ -167,7 +167,7 @@ function classifyRequest({
 		message.includes('Before I generate a person wearing')
 	);
 	const isProfileCorrection =
-		/\b(gender|race|ethnicity|presentation)\b/i.test(request) &&
+		/\b(gender|presentation)\b/i.test(request) &&
 		/\b(you asked|already told|i said|i am|i'm|im|prefer not to say)\b/i.test(
 			request
 		);
@@ -228,13 +228,13 @@ Behavior:
 		case 'profile_detail_request':
 			return `Request category: Profile detail answer.
 Behavior:
-- The user is answering CLAi's optional visual profile question for generating a person wearing a look.
-- Treat gender, style presentation, race, ethnicity, and "prefer not to say" answers as fashion-chat context, not out-of-scope.
+- The user is answering an optional style profile question.
+- Treat gender, style presentation, and "prefer not to say" answers as fashion-chat context, not out-of-scope.
 - Acknowledge briefly that you have the detail.
 - Do not apologize unless you previously contradicted the user.
 - Do not repeat the same profile question.
 - If another requested profile detail is still missing, ask only for that missing detail.
-- If enough detail is available, tell the user they can tap "Generate look inspiration" again.`;
+- If enough detail is available, continue with fashion advice.`;
 		case 'image_based_request':
 			return `Request category: Image-based request.
 Behavior:
@@ -282,7 +282,7 @@ function getDiagnosticQuestionPolicy(category: RequestCategory) {
 		case 'profile_detail_request':
 			return `Diagnostic question policy:
 - Do not ask broad diagnostic questions.
-- Only ask for a missing visual profile detail if it is still needed for generating a person wearing the look.
+- Only ask for a missing styling detail if it is still needed for the fashion advice.
 - Do not repeat details the user already provided in the current chat.`;
 		case 'simple_request':
 			return `Diagnostic question policy:
@@ -357,19 +357,19 @@ Weather/setting:
 Modesty/presentation:
 - What level of coverage or layering feels right for you?
 - Are you dressing femme, masc, neutral, modest, or somewhere in between for this?
-- If the user wants a generated image of a person wearing the look and their style profile is missing, ask for gender/presentation and race/ethnicity before image generation. Make clear these details are optional and CLAi will not assume them.
+- Generated look images are clothing-only. Do not ask for gender, race, ethnicity, or body details before image generation.
 - Ask about body type, fit notes, or comfort preferences only during the conversation when it materially improves the styling advice. Do not store these as part of the style profile.`;
 }
 
 function getCurrentChatMemoryPolicy() {
 	return `Current-chat memory policy:
 - Treat the previous messages in this same chat as active memory.
-- If the user already answered gender presentation, race/ethnicity, budget, occasion, weather, style preference, wardrobe ownership, comfort preference, desired impression, dress code, or shopping intent earlier in this chat, use that answer and do not ask for it again.
+- If the user already answered gender presentation, budget, occasion, weather, style preference, wardrobe ownership, comfort preference, desired impression, dress code, or shopping intent earlier in this chat, use that answer and do not ask for it again.
 - Do not repeat a diagnostic question unless the user gave a vague answer and the missing detail is still essential.
 - If the current user message corrects, changes, or tests a profile detail, use the newest user message as the source of truth.
 - Current-chat details override saved style profile details when they conflict.
 - If the user asks "what if I am..." or "how about if I am..." with a gender or presentation, revise the fashion advice for that presentation immediately.
-- Never keep using an older masc, femme, neutral, gender, race, budget, occasion, or weather assumption after the user gives a newer one.
+- Never keep using an older masc, femme, neutral, gender, budget, occasion, or weather assumption after the user gives a newer one.
 - If a detail is available from the style profile and has not been contradicted in chat, use the style profile detail.
 - If the user says "I already told you" or similar, acknowledge briefly and continue using the existing detail.`;
 }
@@ -462,60 +462,10 @@ function getCurrentRequestOverridePolicy(prompt?: string) {
 				/\b(neutral presentation|gender neutral|nonbinary|non-binary)\b/i,
 		},
 	].find(({ pattern }) => pattern.test(request));
-	const raceSignals = [
-		{
-			label: 'Black race / ethnicity',
-			pattern: /\b(black|black african|african|caribbean)\b/i,
-		},
-		{
-			label: 'White race / ethnicity',
-			pattern: /\b(white|caucasian|european)\b/i,
-		},
-		{
-			label: 'Asian race / ethnicity',
-			pattern: /\b(asian|south asian|east asian)\b/i,
-		},
-		{
-			label: 'Middle Eastern or Arab race / ethnicity',
-			pattern: /\b(middle eastern|arab)\b/i,
-		},
-		{
-			label: 'Latina / Latino / Latinx or Hispanic race / ethnicity',
-			pattern: /\b(latina|latino|latinx|hispanic)\b/i,
-		},
-		{
-			label: 'mixed or biracial race / ethnicity',
-			pattern: /\b(mixed|biracial)\b/i,
-		},
-		{
-			label: 'Nigerian ethnicity / cultural background',
-			pattern: /\b(nigerian|yoruba|igbo|hausa)\b/i,
-		},
-		{
-			label: 'Ghanaian ethnicity / cultural background',
-			pattern: /\bghanaian\b/i,
-		},
-		{
-			label: 'Kenyan ethnicity / cultural background',
-			pattern: /\bkenyan\b/i,
-		},
-		{
-			label: 'undisclosed race / ethnicity',
-			pattern: /\bprefer not to say\b/i,
-		},
-	].find(({ pattern }) => pattern.test(request));
-	const hasRaceIdentityLead =
-		/\b(i am|i'm|im|as a|for a|my race is|my ethnicity is|race:|ethnicity:)\b/i.test(
-			request
-		);
-	const raceOverride = hasRaceIdentityLead ? raceSignals : undefined;
 
 	const overrideLines = [
 		presentationSignals
 			? `The current user message explicitly asks for ${presentationSignals.label}.`
-			: null,
-		raceOverride
-			? `The current user message explicitly states ${raceOverride.label}.`
 			: null,
 	].filter(Boolean);
 
@@ -527,8 +477,7 @@ function getCurrentRequestOverridePolicy(prompt?: string) {
 
 	return `Current user message priority:
 - ${overrideLines.join('\n- ')}
-- For this answer, use the current message details and do not use any older conflicting woman, man, femme, masc, neutral, race, ethnicity, saved-profile, or prior-chat details.
-- Use race or ethnicity only for visual representation or explicitly relevant cultural fashion context. Do not infer body type, personality, budget, religion, or style from it.
+- For this answer, use the current message details and do not use any older conflicting woman, man, femme, masc, neutral, saved-profile, or prior-chat details.
 - Revise the previous fashion advice for the current details instead of repeating an older one.`;
 }
 

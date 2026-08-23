@@ -8,7 +8,7 @@ type FirestoreDocument = {
 	fields?: Record<string, FirestoreValue>;
 };
 
-export const dailyMessageLimit = 10;
+export const dailyMessageLimit = 20;
 
 function getProjectId() {
 	const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;

@@ -94,7 +94,6 @@ function getAuthErrorMessage(error: unknown) {
 
 const emptyStyleProfile: StyleProfileInput = {
 	gender: '',
-	race: '',
 };
 
 export function AuthModal({
@@ -433,23 +432,6 @@ export function AuthModal({
 								}
 								className={inputClassName}
 								placeholder="e.g. femme, masc, or neutral"
-							/>
-						</label>
-						<label className="flex flex-col gap-2 font-antique-legacy text-sm tracking-[-.02em]">
-							<span className={fieldLabelColor}>
-								Race / ethnicity
-							</span>
-							<input
-								type="text"
-								value={styleProfile.race}
-								onChange={(event) =>
-									updateStyleProfile(
-										'race',
-										event.target.value
-									)
-								}
-								className={inputClassName}
-								placeholder="e.g. Black, South Asian, mixed, prefer not to say"
 							/>
 						</label>
 						<button

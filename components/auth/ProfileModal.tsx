@@ -1,6 +1,6 @@
 'use client';
 
-import { sendEmailVerification, type User } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -44,20 +44,6 @@ function getDisplayName(user: User | null) {
 	return user?.displayName || user?.email || 'CLAi user';
 }
 
-function getProviderLabel(user: User) {
-	const providerId = user.providerData[0]?.providerId;
-
-	if (providerId === 'google.com') {
-		return 'Google';
-	}
-
-	if (providerId === 'password') {
-		return 'Email and password';
-	}
-
-	return 'CLAi account';
-}
-
 export function ProfileModal({
 	isOpen,
 	onClose,
@@ -71,11 +57,9 @@ export function ProfileModal({
 	const [isLoadingUsage, setIsLoadingUsage] = useState(false);
 	const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 	const [isSavingProfile, setIsSavingProfile] = useState(false);
-	const [isSendingVerification, setIsSendingVerification] = useState(false);
 	const [isLoggingOut, setIsLoggingOut] = useState(false);
 	const [styleProfile, setStyleProfile] = useState<StyleProfileInput>({
 		gender: '',
-		race: '',
 	});
 	const isMounted = useSyncExternalStore(
 		subscribeToClient,
@@ -186,7 +170,6 @@ export function ProfileModal({
 				if (isActive) {
 					setStyleProfile({
 						gender: profile?.gender ?? '',
-						race: profile?.race ?? '',
 					});
 				}
 			} catch {
@@ -220,19 +203,6 @@ export function ProfileModal({
 			? 'bg-[#1C1C1C]/5 text-[#1C1C1C] placeholder:text-[#1C1C1C]/35'
 			: 'bg-white/10 text-white placeholder:text-white/35'
 	}`;
-
-	// async function handleResendVerification() {
-	// 	setIsSendingVerification(true);
-
-	// 	try {
-	// 		await sendEmailVerification(activeUser);
-	// 		toast.success('Verification email sent. Check your inbox.');
-	// 	} catch {
-	// 		toast.error('We could not send the verification email right now.');
-	// 	} finally {
-	// 		setIsSendingVerification(false);
-	// 	}
-	// }
 
 	async function handleLogout() {
 		setIsLoggingOut(true);
@@ -322,32 +292,6 @@ export function ProfileModal({
 							{user.email}
 						</p>
 					</div>
-					{/* <div>
-						<p
-							className={`text-[0.8rem] uppercase tracking-[.08em] ${labelTextColor}`}
-						>
-							Email verification
-						</p>
-						<p
-							className={`text-base tracking-[-.02em] sm:text-[1.1rem] ${valueTextColor}`}
-						>
-							{user.emailVerified
-								? 'Verified'
-								: 'Not verified yet'}
-						</p>
-						{!user.emailVerified ? (
-							<button
-								type="button"
-								onClick={handleResendVerification}
-								disabled={isSendingVerification}
-								className="mt-4 rounded-full bg-[#F47016] px-5 py-2 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-60 sm:text-base"
-							>
-								{isSendingVerification
-									? 'Sending...'
-									: 'Resend verification email'}
-							</button>
-						) : null}
-					</div> */}
 					<div>
 						<p
 							className={`text-[0.8rem] uppercase tracking-[.08em] ${labelTextColor}`}
@@ -408,28 +352,7 @@ export function ProfileModal({
 									placeholder="e.g. femme, masc, neutral..."
 								/>
 							</p>
-							<p className="mb-2 flex flex-col">
-								<label
-									className={`text-[0.8rem] mb-2 uppercase tracking-[.08em] ${labelTextColor}`}
-								>
-									Race/ethnicity
-								</label>
-								<input
-									type="text"
-									value={styleProfile.race}
-									onChange={(event) =>
-										updateStyleProfile(
-											'race',
-											event.target.value
-										)
-									}
-									disabled={isLoadingProfile}
-									className={inputClassName}
-									placeholder="e.g. Black, South Asian, mixed..."
-								/>
-							</p>
-							
-							
+
 							<button
 								type="button"
 								onClick={handleSaveStyleProfile}
@@ -445,7 +368,9 @@ export function ProfileModal({
 						</div>
 					</div>
 				</div>
-				<p className={`mt-1 text-[1rem] leading-[1.35] text-center tracking-[-.02em]`}>
+				<p
+					className={`mt-1 text-[1rem] leading-[1.35] text-center tracking-[-.02em]`}
+				>
 					<button
 						type="button"
 						onClick={handleLogout}

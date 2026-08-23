@@ -13,7 +13,6 @@ import { Mic } from '@/components/icons/Mic';
 import { ThemeToggle } from '@/components/theme/ThemeProvider';
 import { useToast } from '@/components/toast/ToastProvider';
 import { getFirebaseAuth } from '@/lib/firebase';
-import { getStyleProfile, type StyleProfileInput } from '@/lib/style-profile';
 import { classifyVisualIntent, type VisualIntent } from '@/lib/visual-intent';
 
 const contextOptions = [
@@ -85,6 +84,13 @@ type ChatHistoryGroup = {
 	chats: SavedChatSummary[];
 };
 
+type DailyUsage = {
+	date: string;
+	limit: number;
+	remaining: number;
+	used: number;
+};
+
 type BrowserSpeechRecognition = {
 	continuous: boolean;
 	interimResults: boolean;
@@ -144,190 +150,6 @@ function applyFashionTranscriptCorrections(transcript: string) {
 	return transcript.replace(/\bsweet\b/gi, (match) =>
 		match[0] === match[0].toUpperCase() ? 'Suede' : 'suede'
 	);
-}
-
-function extractInlineVisualProfile(messages: ChatMessage[]) {
-	const userMessages = messages
-		.filter((message) => message.role === 'user')
-		.map((message) => {
-			const originalIndex = messages.findIndex(
-				(chatMessage) => chatMessage.id === message.id
-			);
-			const previousAssistantMessage = [...messages]
-				.slice(0, originalIndex)
-				.reverse()
-				.find((chatMessage) => chatMessage.role === 'assistant');
-
-			return {
-				content: message.content.toLowerCase(),
-				isAnsweringVisualProfileQuestion: Boolean(
-					previousAssistantMessage?.content.startsWith(
-						'Before I generate a person wearing the look'
-					)
-				),
-			};
-		})
-		.reverse();
-
-	const genderSignals = [
-		'i am a lady',
-		"i'm a lady",
-		'im a lady',
-		'i am female',
-		"i'm female",
-		'im female',
-		'i am a woman',
-		"i'm a woman",
-		'im a woman',
-		'i am a man',
-		"i'm a man",
-		'im a man',
-		'i am male',
-		"i'm male",
-		'im male',
-		'female',
-		'lady',
-		'woman',
-		'male',
-		'man',
-		'femme',
-		'masc',
-		'neutral presentation',
-		'gender neutral',
-		'nonbinary',
-		'non-binary',
-		'prefer not to say',
-	];
-
-	const raceSignals = [
-		'black',
-		'white',
-		'asian',
-		'south asian',
-		'east asian',
-		'middle eastern',
-		'arab',
-		'latina',
-		'latino',
-		'latinx',
-		'hispanic',
-		'mixed',
-		'biracial',
-		'african',
-		'caribbean',
-		'nigerian',
-		'ghanaian',
-		'kenyan',
-		'yoruba',
-		'igbo',
-		'hausa',
-		'prefer not to say',
-	];
-
-	const identityLeadPattern =
-		/\b(i am|i'm|im|as a|for a|my race is|my ethnicity is|race:|ethnicity:)\b/;
-
-	function findRaceSignal(message: {
-		content: string;
-		isAnsweringVisualProfileQuestion: boolean;
-	}) {
-		if (
-			!message.isAnsweringVisualProfileQuestion &&
-			!identityLeadPattern.test(message.content)
-		) {
-			return undefined;
-		}
-
-		return raceSignals.find((signal) => message.content.includes(signal));
-	}
-
-	const gender = userMessages.reduce<string | undefined>(
-		(foundGender, message) =>
-			foundGender ??
-			genderSignals.find((signal) => message.content.includes(signal)),
-		undefined
-	);
-
-	const race = userMessages.reduce<string | undefined>(
-		(foundRace, message) => foundRace ?? findRaceSignal(message),
-		undefined
-	);
-
-	return {
-		gender,
-		race,
-	};
-}
-
-function getMissingVisualProfileFieldsFromChat({
-	inlineProfile,
-	savedProfile,
-}: {
-	inlineProfile: ReturnType<typeof extractInlineVisualProfile>;
-	savedProfile: StyleProfileInput | null;
-}) {
-	const missingFields: string[] = [];
-
-	if (!savedProfile?.gender?.trim() && !inlineProfile.gender) {
-		missingFields.push('gender or style presentation');
-	}
-
-	if (!savedProfile?.race?.trim() && !inlineProfile.race) {
-		missingFields.push('race or ethnicity');
-	}
-
-	return missingFields;
-}
-
-function getInlineVisualProfileContext(
-	inlineProfile: ReturnType<typeof extractInlineVisualProfile>
-) {
-	const details = [
-		inlineProfile.gender
-			? `Gender / presentation from this chat: ${inlineProfile.gender}`
-			: null,
-		inlineProfile.race
-			? `Race / ethnicity from this chat: ${inlineProfile.race}`
-			: null,
-	].filter(Boolean);
-
-	return details.length
-		? `Current chat visual profile details:\n- ${details.join('\n- ')}`
-		: '';
-}
-
-function getVisualProfileQuestion(fields: string[]) {
-	return `Before I generate a person wearing the look, tell me your ${fields.join(
-		', '
-	)}. These are optional, and you can say "prefer not to say" for any of them. Example: "neutral presentation, Black."`;
-}
-
-function appendVisualProfileQuestion(
-	currentMessages: ChatMessage[],
-	missingProfileFields: string[]
-) {
-	const content = getVisualProfileQuestion(missingProfileFields);
-	const hasExistingQuestion = currentMessages.some(
-		(message) =>
-			message.role === 'assistant' &&
-			message.content.startsWith(
-				'Before I generate a person wearing the look'
-			)
-	);
-
-	if (hasExistingQuestion) {
-		return currentMessages;
-	}
-
-	return [
-		...currentMessages,
-		{
-			id: crypto.randomUUID(),
-			role: 'assistant' as const,
-			content,
-			suppressGenerateVisual: true,
-		},
-	];
 }
 
 function loadImage(dataUrl: string) {
@@ -533,9 +355,11 @@ export function Ask({ variant = 'dark' }: AskProps) {
 	const [chatId, setChatId] = useState<string | null>(null);
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [user, setUser] = useState<User | null>(null);
+	const [dailyUsage, setDailyUsage] = useState<DailyUsage | null>(null);
 	const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(
 		null
 	);
+	const hasNoCredits = dailyUsage ? dailyUsage.remaining <= 0 : false;
 	const hasStartedChat = messages.length > 0;
 	const imageInputRef = useRef<HTMLInputElement | null>(null);
 	const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
@@ -554,8 +378,51 @@ export function Ask({ variant = 'dark' }: AskProps) {
 	);
 
 	useEffect(() => {
-		return onAuthStateChanged(getFirebaseAuth(), setUser);
+		return onAuthStateChanged(getFirebaseAuth(), (nextUser) => {
+			setUser(nextUser);
+
+			if (!nextUser) {
+				setDailyUsage(null);
+			}
+		});
 	}, []);
+
+	useEffect(() => {
+		if (!user) {
+			return;
+		}
+
+		let isActive = true;
+		const currentUser = user;
+
+		async function loadDailyUsage() {
+			try {
+				const idToken = await currentUser.getIdToken();
+				const response = await fetch('/api/usage', {
+					headers: {
+						Authorization: `Bearer ${idToken}`,
+					},
+				});
+				const data = (await response.json()) as
+					| DailyUsage
+					| { error?: string };
+
+				if (response.ok && isActive) {
+					setDailyUsage(data as DailyUsage);
+				}
+			} catch {
+				if (isActive) {
+					setDailyUsage(null);
+				}
+			}
+		}
+
+		void loadDailyUsage();
+
+		return () => {
+			isActive = false;
+		};
+	}, [user]);
 
 	useEffect(() => {
 		const recognitionConstructor =
@@ -1012,7 +879,12 @@ export function Ask({ variant = 'dark' }: AskProps) {
 				chatId?: string;
 				chatSaved?: boolean;
 				error?: string;
+				usage?: DailyUsage;
 			};
+
+			if (data.usage) {
+				setDailyUsage(data.usage);
+			}
 
 			if (!response.ok) {
 				throw new Error(
@@ -1035,38 +907,12 @@ export function Ask({ variant = 'dark' }: AskProps) {
 				setChatId(data.chatId);
 			}
 
-			if (data.answer && shouldAutoGenerateVisual(prompt)) {
+			if (
+				data.answer &&
+				shouldAutoGenerateVisual(prompt) &&
+				(!data.usage || data.usage.remaining > 0)
+			) {
 				const visualIntent = classifyVisualIntent(prompt);
-
-				if (visualIntent === 'outfit') {
-					try {
-						const styleProfile = await getStyleProfile(user);
-						const inlineProfile = extractInlineVisualProfile([
-							...messages,
-							userMessage,
-						]);
-						const missingProfileFields =
-							getMissingVisualProfileFieldsFromChat({
-								inlineProfile,
-								savedProfile: styleProfile,
-							});
-
-						if (missingProfileFields.length) {
-							setMessages((currentMessages) =>
-								appendVisualProfileQuestion(
-									currentMessages,
-									missingProfileFields
-								)
-							);
-							return;
-						}
-					} catch {
-						toast.error(
-							'Unable to check your style profile before generating a look.'
-						);
-						return;
-					}
-				}
 
 				setGeneratingLookForMessageId(assistantMessageId);
 
@@ -1080,12 +926,6 @@ export function Ask({ variant = 'dark' }: AskProps) {
 						body: JSON.stringify({
 							advice: data.answer,
 							context: activeContext,
-							visualProfileContext: getInlineVisualProfileContext(
-								extractInlineVisualProfile([
-									...messages,
-									userMessage,
-								])
-							),
 							image: outgoingImage
 								? {
 										data: outgoingImage.data,
@@ -1099,8 +939,13 @@ export function Ask({ variant = 'dark' }: AskProps) {
 					const visualData = (await visualResponse.json()) as {
 						error?: string;
 						imageUrl?: string;
+						usage?: DailyUsage;
 						visualIntent?: VisualIntent;
 					};
+
+					if (visualData.usage) {
+						setDailyUsage(visualData.usage);
+					}
 
 					if (!visualResponse.ok || !visualData.imageUrl) {
 						throw new Error(
@@ -1161,6 +1006,13 @@ export function Ask({ variant = 'dark' }: AskProps) {
 			return;
 		}
 
+		if (hasNoCredits) {
+			toast.info(
+				`You have used all ${dailyUsage?.limit ?? 20} CLAi messages for today.`
+			);
+			return;
+		}
+
 		const assistantIndex = messages.findIndex(
 			(message) =>
 				message.id === messageId && message.role === 'assistant'
@@ -1179,34 +1031,6 @@ export function Ask({ variant = 'dark' }: AskProps) {
 			return;
 		}
 
-		if (visualIntent === 'outfit') {
-			try {
-				const styleProfile = await getStyleProfile(user);
-				const inlineProfile = extractInlineVisualProfile(messages);
-				const missingProfileFields =
-					getMissingVisualProfileFieldsFromChat({
-						inlineProfile,
-						savedProfile: styleProfile,
-					});
-
-				if (missingProfileFields.length) {
-					setMessages((currentMessages) =>
-						appendVisualProfileQuestion(
-							currentMessages,
-							missingProfileFields
-						)
-					);
-					setIsChatOpen(true);
-					return;
-				}
-			} catch {
-				toast.error(
-					'Unable to check your style profile before generating a look.'
-				);
-				return;
-			}
-		}
-
 		setGeneratingLookForMessageId(messageId);
 
 		try {
@@ -1220,9 +1044,6 @@ export function Ask({ variant = 'dark' }: AskProps) {
 				body: JSON.stringify({
 					advice: assistantMessage.content,
 					context: activeContext,
-					visualProfileContext: getInlineVisualProfileContext(
-						extractInlineVisualProfile(messages)
-					),
 					image:
 						userMessage?.imageData && userMessage.imageMimeType
 							? {
@@ -1237,8 +1058,13 @@ export function Ask({ variant = 'dark' }: AskProps) {
 			const data = (await response.json()) as {
 				error?: string;
 				imageUrl?: string;
+				usage?: DailyUsage;
 				visualIntent?: VisualIntent;
 			};
+
+			if (data.usage) {
+				setDailyUsage(data.usage);
+			}
 
 			if (!response.ok || !data.imageUrl) {
 				throw new Error(
@@ -1622,6 +1448,7 @@ export function Ask({ variant = 'dark' }: AskProps) {
 											!isOnlyOutOfScopeFashionResponse(
 												message.content
 											) &&
+											!hasNoCredits &&
 											!message.generatedImageUrl ? (
 												<button
 													type="button"
