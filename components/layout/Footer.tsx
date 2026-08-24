@@ -8,6 +8,51 @@ type FooterProps = {
 	variant?: Theme;
 };
 
+const socialLinks = [
+	{
+		href: 'https://www.linkedin.com/company/the-clai/',
+		label: 'LinkedIn',
+		Icon: LinkedInIcon,
+	},
+	{
+		href: 'https://www.instagram.com/the_clai?igsi=MXFuMm8xNXM0N2NoNQ%3D%3D&utm_source=qr',
+		label: 'Instagram',
+		Icon: InstagramIcon,
+	},
+];
+
+function LinkedInIcon({ className }: { className?: string }) {
+	return (
+		<svg
+			viewBox="0 0 24 24"
+			fill="none"
+			className={className}
+			aria-hidden="true"
+		>
+			<path
+				d="M6.94 8.9v9.18H4.04V8.9h2.9ZM5.49 5.01c.94 0 1.58.62 1.6 1.43 0 .79-.6 1.43-1.62 1.43h-.02c-.96 0-1.58-.64-1.58-1.43 0-.81.64-1.43 1.62-1.43Zm6.27 3.89.13 1.26c.42-.65 1.24-1.48 2.75-1.48 2.03 0 3.55 1.34 3.55 4.2v5.2h-2.9v-4.84c0-1.22-.43-2.06-1.5-2.06-.82 0-1.31.56-1.53 1.1-.08.2-.1.47-.1.74v5.06H9.25V8.9h2.51Z"
+				fill="currentColor"
+			/>
+		</svg>
+	);
+}
+
+function InstagramIcon({ className }: { className?: string }) {
+	return (
+		<svg
+			viewBox="0 0 24 24"
+			fill="none"
+			className={className}
+			aria-hidden="true"
+		>
+			<path
+				d="M8.2 3.5h7.6c2.6 0 4.7 2.1 4.7 4.7v7.6c0 2.6-2.1 4.7-4.7 4.7H8.2c-2.6 0-4.7-2.1-4.7-4.7V8.2c0-2.6 2.1-4.7 4.7-4.7Zm0 1.8c-1.6 0-2.9 1.3-2.9 2.9v7.6c0 1.6 1.3 2.9 2.9 2.9h7.6c1.6 0 2.9-1.3 2.9-2.9V8.2c0-1.6-1.3-2.9-2.9-2.9H8.2Zm3.8 3.2a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Zm0 1.8a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 0 0 0-3.4Zm4.1-2.76a.92.92 0 1 1 0 1.84.92.92 0 0 1 0-1.84Z"
+				fill="currentColor"
+			/>
+		</svg>
+	);
+}
+
 export function Footer({ variant }: FooterProps) {
 	const { theme } = useTheme();
 	const activeVariant = variant ?? theme;
@@ -106,24 +151,26 @@ export function Footer({ variant }: FooterProps) {
 					</div>
 					<div className="flex flex-col md:max-w-[500px]">
 						<h2 className="mb-3 font-mackinac text-2xl font-normal tracking-[-.04em] sm:text-3xl">
-							Share your feedback
+							Follow us on social
 						</h2>
-						<p
-							className={`font-antique-legacy text-base sm:text-[1.1rem] ${
-								isLight ? 'text-[#1C1C1C]/60' : 'text-white/50'
-							}`}
-						>
-							CLAi is still learning.{' '}
-							<Link
-								href="https://docs.google.com/forms/d/e/1FAIpQLSe7TKRdTqlKw7bIA2wAEukMCemsdVtyrjHBPaSqNjKqGBCAiQ/viewform?usp=preview"
-								className="text-[#F47016]/70"
-								target="_blank"
-							>
-								Share
-							</Link>{' '}
-							what felt useful, confusing, or missing so we can
-							make the experience better.
-						</p>
+						<div className="flex items-center gap-3">
+							{socialLinks.map(({ href, label, Icon }) => (
+								<a
+									key={label}
+									href={href}
+									target="_blank"
+									rel="noopener noreferrer"
+									aria-label={`Follow CLAi on ${label}`}
+									className={`grid size-11 place-items-center rounded-full border transition ${
+										isLight
+											? 'border-[#1C1C1C]/10 text-[#1C1C1C] hover:border-[#F47016]/40 hover:text-[#F47016]'
+											: 'border-white/15 text-white hover:border-[#F47016]/50 hover:text-[#F47016]'
+									}`}
+								>
+									<Icon className="size-6" />
+								</a>
+							))}
+						</div>
 					</div>
 				</div>
 			</div>

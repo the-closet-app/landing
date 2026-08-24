@@ -1705,19 +1705,6 @@ export function Ask({ variant = 'dark' }: AskProps) {
 					);
 				})}
 			</div>
-			{user ? (
-				<button
-					type="button"
-					onClick={handleHistoryOpen}
-					className={`font-antique-legacy text-sm font-medium tracking-[-.02em] transition ${
-						isLight
-							? 'text-white/85 hover:text-white'
-							: 'text-white/45 hover:text-white/70'
-					}`}
-				>
-					View chat history
-				</button>
-			) : null}
 			{isChatOpen ? null : renderComposer(false)}
 			{chatOverlay}
 			{chatHistoryOverlay}
