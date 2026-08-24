@@ -19,6 +19,11 @@ const socialLinks = [
 		label: 'Instagram',
 		Icon: InstagramIcon,
 	},
+	{
+		href: 'https://www.tiktok.com/@clai_app?_r=1&_t=ZG-999m52obcZN',
+		label: 'TikTok',
+		Icon: TikTokIcon,
+	},
 ];
 
 function LinkedInIcon({ className }: { className?: string }) {
@@ -47,6 +52,22 @@ function InstagramIcon({ className }: { className?: string }) {
 		>
 			<path
 				d="M8.2 3.5h7.6c2.6 0 4.7 2.1 4.7 4.7v7.6c0 2.6-2.1 4.7-4.7 4.7H8.2c-2.6 0-4.7-2.1-4.7-4.7V8.2c0-2.6 2.1-4.7 4.7-4.7Zm0 1.8c-1.6 0-2.9 1.3-2.9 2.9v7.6c0 1.6 1.3 2.9 2.9 2.9h7.6c1.6 0 2.9-1.3 2.9-2.9V8.2c0-1.6-1.3-2.9-2.9-2.9H8.2Zm3.8 3.2a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Zm0 1.8a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 0 0 0-3.4Zm4.1-2.76a.92.92 0 1 1 0 1.84.92.92 0 0 1 0-1.84Z"
+				fill="currentColor"
+			/>
+		</svg>
+	);
+}
+
+function TikTokIcon({ className }: { className?: string }) {
+	return (
+		<svg
+			viewBox="0 0 24 24"
+			fill="none"
+			className={className}
+			aria-hidden="true"
+		>
+			<path
+				d="M15.35 3.5c.22 1.92 1.3 3.12 3.15 3.26v2.82a6.48 6.48 0 0 1-3.04-.86v5.4c0 2.74-1.8 4.38-4.43 4.38-2.22 0-4.03-1.46-4.03-3.74 0-2.62 2.31-4.38 5.06-3.79v2.91c-1.1-.36-2.15.22-2.15 1.33 0 .78.58 1.31 1.39 1.31.87 0 1.34-.52 1.34-1.59V3.5h2.71Z"
 				fill="currentColor"
 			/>
 		</svg>
