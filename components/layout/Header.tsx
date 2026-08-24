@@ -168,38 +168,32 @@ export function Header({ variant }: HeaderProps) {
 									</div>
 								</div>
 							) : (
-								<>
-									<button
-										type="button"
-										onClick={() => setIsAuthModalOpen(true)}
-										className={`flex h-10 items-center whitespace-nowrap rounded-full px-4 text-sm font-medium tracking-[-.02em] shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] sm:h-12 sm:px-6 sm:text-lg ${
-											isLight
-												? 'bg-transparent text-white'
-												: 'bg-white/10 text-[#FFFFFF]/50'
-										}`}
-									>
-										Login
-									</button>
-									<button
-										type="button"
-										onClick={() =>
-											setIsWaitlistModalOpen(true)
-										}
-										className={`flex h-10 items-center whitespace-nowrap rounded-full px-4 text-sm font-medium tracking-[-.02em] transition sm:h-12 sm:px-6 sm:text-lg ${
-											isLight
-												? 'bg-white text-[#1C1C1C] shadow-[0_14px_30px_rgba(80,111,175,0.18)] hover:bg-white/90'
-												: 'bg-[#F47016] text-white hover:bg-[#F47016]'
-										}`}
-									>
-										<span className="sm:hidden">
-											Waitlist
-										</span>
-										<span className="hidden sm:inline">
-											Join the waitlist
-										</span>
-									</button>
-								</>
+								<button
+									type="button"
+									onClick={() => setIsAuthModalOpen(true)}
+									className={`flex h-10 items-center whitespace-nowrap rounded-full px-4 text-sm font-medium tracking-[-.02em] shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] sm:h-12 sm:px-6 sm:text-lg ${
+										isLight
+											? 'bg-transparent text-white'
+											: 'bg-white/10 text-[#FFFFFF]/50'
+									}`}
+								>
+									Login
+								</button>
 							)}
+							<button
+								type="button"
+								onClick={() => setIsWaitlistModalOpen(true)}
+								className={`flex h-10 items-center whitespace-nowrap rounded-full px-4 text-sm font-medium tracking-[-.02em] transition sm:h-12 sm:px-6 sm:text-lg ${
+									isLight
+										? 'bg-white text-[#1C1C1C] shadow-[0_14px_30px_rgba(80,111,175,0.18)] hover:bg-white/90'
+										: 'bg-[#F47016] text-white hover:bg-[#F47016]'
+								}`}
+							>
+								<span className="sm:hidden">Waitlist</span>
+								<span className="hidden sm:inline">
+									Join the waitlist
+								</span>
+							</button>
 							<ThemeToggle />
 						</div>
 					</nav>
