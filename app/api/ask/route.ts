@@ -1,5 +1,3 @@
-import { NextResponse } from 'next/server';
-
 import { saveAskChatTurn } from '@/lib/chat-history-server';
 import {
 	getDailyMessageUsage,
@@ -9,10 +7,12 @@ import {
 	getBearerToken,
 	requireAuthenticatedUser,
 } from '@/lib/firebase-auth-server';
+import { noStoreJson } from '@/lib/no-store-response';
 import {
 	formatStyleProfileForPrompt,
 	getServerStyleProfile,
 } from '@/lib/style-profile-server';
+import type { VisualIntent } from '@/lib/visual-intent';
 
 type AskRequestBody = {
 	prompt?: string;
@@ -55,14 +55,42 @@ type GeminiResponse = {
 	};
 };
 
-type RequestCategory =
-	| 'greeting_request'
-	| 'profile_detail_request'
-	| 'simple_request'
-	| 'significant_request'
-	| 'image_based_request'
-	| 'shopping_buying_request'
-	| 'out_of_scope_request';
+type GeminiIntent =
+	| 'outfit_advice'
+	| 'fashion_cleaning'
+	| 'fashion_care'
+	| 'fashion_repair'
+	| 'fashion_alteration'
+	| 'fashion_sustainability'
+	| 'shopping_advice'
+	| 'image_analysis'
+	| 'style_follow_up'
+	| 'other_fashion'
+	| 'out_of_scope';
+
+type GeminiRoutingResponse = {
+	answer?: string;
+	imageButtonLabel?: string;
+	intent?: GeminiIntent;
+	scope?: 'in_scope' | 'out_of_scope';
+	shouldAskFollowUp?: boolean;
+	shouldOfferImageGeneration?: boolean;
+	suppressGenerateVisual?: boolean;
+	visualIntent?: VisualIntent;
+	visualPrompt?: string;
+};
+
+type NormalizedGeminiRoutingResponse = {
+	answer: string;
+	imageButtonLabel?: string;
+	intent: GeminiIntent;
+	scope: 'in_scope' | 'out_of_scope';
+	shouldAskFollowUp: boolean;
+	shouldOfferImageGeneration: boolean;
+	suppressGenerateVisual: boolean;
+	visualIntent: VisualIntent;
+	visualPrompt?: string;
+};
 
 const contextInstructions = {
 	consumer: `You are CLAi, a sharp personal stylist and fashion psychologist for modest fashion users across all genders. Your core behavior is: diagnose before you recommend. Give short, direct, confidence-building fashion advice that is practical and sustainability-aware.
@@ -79,6 +107,8 @@ Only answer fashion, styling, wardrobe, outfit, color, fit, shopping, occasion, 
 
 Do not assume gender, race, ethnicity, size, body shape, religion, budget, age, culture, or location. If gender presentation would materially change the recommendation and the user has not provided it, ask lightly: "Are you dressing femme, masc, or somewhere in between for this?" Do not infer gender from skirts, tailoring, heels, or the topic alone. Avoid body-shaming, size assumptions, and comments that judge the user's body. Focus on garments, proportions, coverage, color, texture, occasion, comfort, confidence, and styling intention.
 
+Do infer from hard evidence and common knowledge when it is useful: if the user gives a city, country, season, month, occasion, venue, or activity, use reasonable climate, cultural, dress-code, and practicality assumptions. Do not ask the user for information you can confidently infer, such as typical March weather in Morocco or likely walking needs for a city trip. If the exact detail is uncertain, state it as a useful assumption and ask only for confirmation when it would materially change the advice.
+
 For image analysis, keep the response compact. Reference only visible outfit details, colors, fit, coverage, proportions, and styling opportunities. Do not over-explain. Prefer a concise structure such as: What works, What to change, Final look. Ask for budget only if the user clearly wants to buy something or after a bit of back-and-forth.`,
 	stylist: `You are CLAi, a sharp stylist and fashion psychologist for professional fashion stylists, personal shoppers, and fashion creators working with modest fashion clients across all genders. Your core behavior is: diagnose before you recommend. Give polished, client-ready direction that is concise, practical, confidence-building, and sustainability-aware.
 
@@ -94,32 +124,13 @@ Only answer fashion, styling, wardrobe, outfit, color, fit, shopping, occasion, 
 
 Do not assume gender, race, ethnicity, size, body shape, religion, budget, age, culture, or location. If gender presentation would materially change the recommendation and the user has not provided it, ask lightly: "Is the client dressing femme, masc, or somewhere in between for this?" Do not infer gender from skirts, tailoring, heels, or the topic alone. Avoid body-shaming, size assumptions, and comments that judge the client's body. Focus on garment behavior, coverage, silhouette, color story, texture, styling intention, occasion, client confidence, and repeatable wardrobe value.
 
+Do infer from hard evidence and common knowledge when it is useful: if the brief gives a city, country, season, month, occasion, venue, or activity, use reasonable climate, cultural, dress-code, and practicality assumptions. Do not ask the stylist for information you can confidently infer, such as typical March weather in Morocco or likely walking needs for a city trip. If the exact detail is uncertain, state it as a useful assumption and ask only for confirmation when it would materially change the advice.
+
 For image analysis, keep the response compact and professional. Reference only visible garment details, colors, fit, coverage, proportions, and styling opportunities. Prefer a concise structure such as: What works, What to change, Final look. Ask for budget only if the user clearly wants to buy something or after a bit of back-and-forth.`,
 } as const;
 
 const maxHistoryMessages = 24;
 const maxHistoryCharacters = 1200;
-
-const fashionSignals =
-	/\b(style|styling|outfit|wear|wardrobe|clothes|clothing|fashion|dress|dressed|dressing|attire|garment|shirt|top|tops|blouse|trouser|trousers|pants|jeans|skirt|jacket|coat|blazer|shoe|shoes|trainer|trainers|sneaker|sneakers|boot|boots|heels|sandals|bag|accessor|jewelry|jewellery|color|colour|fit|fabric|textile|texture|layer|layers|modest|tailor|tailoring|alter|alteration|alterations|hem|hemming|sew|sewing|stitch|stitching|thread|needle|patch|patching|repair|mend|mending|tear|torn|rip|ripped|care|clean|cleaning|stain|stains|suede|leather|canvas|mesh|cashmere|sweater|jumper|occasion|look|looks|pack|packing|packed|swimwear|sleepwear|undergarments)\b/i;
-
-const shoppingSignals =
-	/\b(buy|purchase|shop|shopping|worth it|should i get|should i buy|where can i find|recommend.*(?:brand|store|piece|item)|budget|price|cost|afford|dupe|alternative)\b/i;
-
-const significantSignals =
-	/\b(wedding|interview|job interview|wimbledon|first date|date night|presentation|big presentation|speech|conference|gala|ceremony|funeral|graduation|photoshoot|photo shoot|campaign|client|meeting|important event|special occasion|black tie|formal|red carpet|launch event|networking)\b/i;
-
-const simpleSignals =
-	/\b(which|what|how|can|should|need)\b.*\b(go with|match|pair|style|wear|fix|repair|layer|pack|packing|clothes|clothing|outfit|look)\b/i;
-
-const greetingSignals =
-	/^(hi|hello|hey|hiya|good morning|good afternoon|good evening|yo|sup|what'?s up|how are you|howdy)[.!?\s]*$/i;
-
-const profileAnswerSignals =
-	/\b(i am|i'm|im|my gender|female|woman|lady|male|man|masc|femme|neutral presentation|gender neutral|nonbinary|non-binary|prefer not to say)\b/i;
-
-const profileFashionFollowUpSignals =
-	/\b(what if|how about|if i am|if i'm|if im|for a|as a)\b.*\b(woman|lady|female|man|male|femme|masc|neutral presentation|gender neutral|nonbinary|non-binary)\b/i;
 
 const imageAnalysisInstruction = `Image response rules:
 - Analyze the image as a modest-fashion styling assistant.
@@ -142,178 +153,225 @@ What to change:
 Final look: one concise outfit direction.
 Refinement questions: one or two short questions only if needed.`;
 
-function classifyRequest({
+const allowedIntents = new Set<GeminiIntent>([
+	'outfit_advice',
+	'fashion_cleaning',
+	'fashion_care',
+	'fashion_repair',
+	'fashion_alteration',
+	'fashion_sustainability',
+	'shopping_advice',
+	'image_analysis',
+	'style_follow_up',
+	'other_fashion',
+	'out_of_scope',
+]);
+
+const allowedVisualIntents = new Set<VisualIntent>([
+	'outfit',
+	'cleaning',
+	'repair',
+	'care',
+	'alteration',
+	'comparison',
+]);
+
+function getVisualIntentForGeminiIntent(intent: GeminiIntent): VisualIntent {
+	switch (intent) {
+		case 'fashion_cleaning':
+			return 'cleaning';
+		case 'fashion_repair':
+			return 'repair';
+		case 'fashion_care':
+			return 'care';
+		case 'fashion_alteration':
+			return 'alteration';
+		case 'shopping_advice':
+			return 'comparison';
+		case 'outfit_advice':
+		case 'image_analysis':
+		case 'style_follow_up':
+		case 'other_fashion':
+		case 'fashion_sustainability':
+		case 'out_of_scope':
+		default:
+			return 'outfit';
+	}
+}
+
+function stripJsonFence(value: string) {
+	return value
+		.trim()
+		.replace(/^```(?:json)?\s*/i, '')
+		.replace(/\s*```$/i, '')
+		.trim();
+}
+
+function parseGeminiRoutingResponse(rawAnswer: string): GeminiRoutingResponse {
+	const jsonText = stripJsonFence(rawAnswer);
+
+	try {
+		return JSON.parse(jsonText) as GeminiRoutingResponse;
+	} catch {
+		return {
+			answer: rawAnswer,
+			intent: 'other_fashion',
+			scope: 'in_scope',
+			shouldAskFollowUp: false,
+			shouldOfferImageGeneration: false,
+			suppressGenerateVisual: true,
+		};
+	}
+}
+
+function normalizeGeminiRoutingResponse({
 	hasImage,
-	history,
-	prompt,
+	response,
 }: {
 	hasImage: boolean;
-	history?: AskRequestBody['history'];
+	response: GeminiRoutingResponse;
+}): NormalizedGeminiRoutingResponse {
+	const scope =
+		response.scope === 'out_of_scope' ? 'out_of_scope' : 'in_scope';
+	const intent =
+		response.intent && allowedIntents.has(response.intent)
+			? response.intent
+			: scope === 'out_of_scope'
+				? 'out_of_scope'
+				: hasImage
+					? 'image_analysis'
+					: 'other_fashion';
+	const visualIntent =
+		response.visualIntent && allowedVisualIntents.has(response.visualIntent)
+			? response.visualIntent
+			: getVisualIntentForGeminiIntent(intent);
+	const answer =
+		scope === 'out_of_scope'
+			? 'I am CLAi, I only give fashion advice.'
+			: (response.answer ?? '').trim();
+	const isVisualSuppressedIntent =
+		intent === 'shopping_advice' ||
+		intent === 'fashion_sustainability' ||
+		intent === 'out_of_scope';
+	const isVisualFriendlyIntent =
+		intent === 'outfit_advice' ||
+		intent === 'image_analysis' ||
+		intent === 'style_follow_up' ||
+		intent === 'fashion_cleaning' ||
+		intent === 'fashion_care' ||
+		intent === 'fashion_repair' ||
+		intent === 'fashion_alteration';
+	const shouldOfferImageGeneration =
+		scope === 'in_scope' &&
+		(Boolean(response.shouldOfferImageGeneration) ||
+			Boolean(response.visualPrompt) ||
+			isVisualFriendlyIntent) &&
+		!isVisualSuppressedIntent;
+	const suppressGenerateVisual =
+		scope === 'out_of_scope' ||
+		Boolean(response.suppressGenerateVisual) ||
+		!shouldOfferImageGeneration;
+
+	return {
+		answer,
+		imageButtonLabel: response.imageButtonLabel?.trim() || undefined,
+		intent,
+		scope,
+		shouldAskFollowUp: Boolean(response.shouldAskFollowUp),
+		shouldOfferImageGeneration,
+		suppressGenerateVisual,
+		visualIntent,
+		visualPrompt: response.visualPrompt?.trim() || undefined,
+	};
+}
+
+function getGeminiRoutingPrompt({
+	context,
+	hasImage,
+	prompt,
+	regionalContext,
+	styleProfileContext,
+}: {
+	context: 'consumer' | 'stylist';
+	hasImage: boolean;
 	prompt?: string;
-}): RequestCategory {
-	const request = prompt?.trim() ?? '';
-	const recentAssistantMessages = Array.isArray(history)
-		? [...history]
-				.reverse()
-				.filter(
-					(message) =>
-						message.role === 'assistant' &&
-						typeof message.content === 'string'
-				)
-				.slice(0, 8)
-				.map((message) => message.content ?? '')
-		: [];
-	const hasRecentProfileQuestion = recentAssistantMessages.some((message) =>
-		message.includes('Before I generate a person wearing')
-	);
-	const isProfileCorrection =
-		/\b(gender|presentation)\b/i.test(request) &&
-		/\b(you asked|already told|i said|i am|i'm|im|prefer not to say)\b/i.test(
-			request
-		);
-	const isAnsweringProfileQuestion =
-		(hasRecentProfileQuestion || isProfileCorrection) &&
-		profileAnswerSignals.test(request);
-	const hasFashionHistory = recentAssistantMessages.some(
-		(message) =>
-			fashionSignals.test(message) ||
-			message.includes('Generate look inspiration')
-	);
-	const isFashionProfileFollowUp =
-		hasFashionHistory && profileFashionFollowUpSignals.test(request);
+	regionalContext: string;
+	styleProfileContext: string;
+}) {
+	return `${contextInstructions[context]}
 
-	if (hasImage) {
-		return 'image_based_request';
-	}
+You are now responsible for understanding the user's intent from the current message, uploaded image when present, saved style profile, regional context, and the current chat history. The app should not need keyword rules to decide what the user means.
 
-	if (greetingSignals.test(request)) {
-		return 'greeting_request';
-	}
-
-	if (isAnsweringProfileQuestion) {
-		return 'profile_detail_request';
-	}
-
-	if (isFashionProfileFollowUp) {
-		return 'simple_request';
-	}
-
-	if (
-		!request ||
-		(!fashionSignals.test(request) && !simpleSignals.test(request))
-	) {
-		return 'out_of_scope_request';
-	}
-
-	if (shoppingSignals.test(request)) {
-		return 'shopping_buying_request';
-	}
-
-	if (significantSignals.test(request)) {
-		return 'significant_request';
-	}
-
-	return 'simple_request';
+Return only valid JSON. Do not wrap it in markdown. Use this exact shape:
+{
+	"scope": "in_scope" | "out_of_scope",
+	"intent": "outfit_advice" | "fashion_cleaning" | "fashion_care" | "fashion_repair" | "fashion_alteration" | "fashion_sustainability" | "shopping_advice" | "image_analysis" | "style_follow_up" | "other_fashion" | "out_of_scope",
+	"answer": "natural user-facing answer",
+	"shouldAskFollowUp": true | false,
+	"shouldOfferImageGeneration": true | false,
+	"suppressGenerateVisual": true | false,
+	"visualIntent": "outfit" | "cleaning" | "repair" | "care" | "alteration" | "comparison",
+	"imageButtonLabel": "short button label",
+	"visualPrompt": "prompt for a fashion visual generator"
 }
 
-function getCategoryInstruction(category: RequestCategory) {
-	switch (category) {
-		case 'greeting_request':
-			return `Request category: Greeting.
-Behavior:
-- Reply warmly and briefly as CLAi.
-- Invite the user to ask a fashion, styling, wardrobe, outfit, color, fit, shopping, occasion, garment-care, or personal-style question.
-- Do not use the out-of-scope boundary for greetings.
-- Do not give a long explanation.`;
-		case 'profile_detail_request':
-			return `Request category: Profile detail answer.
-Behavior:
-- The user is answering an optional style profile question.
-- Treat gender, style presentation, and "prefer not to say" answers as fashion-chat context, not out-of-scope.
-- Acknowledge briefly that you have the detail.
-- Do not apologize unless you previously contradicted the user.
-- Do not repeat the same profile question.
-- If another requested profile detail is still missing, ask only for that missing detail.
-- If enough detail is available, continue with fashion advice.`;
-		case 'image_based_request':
-			return `Request category: Image-based request.
-Behavior:
-- Start with a compact visual read of the uploaded outfit or garment.
-- Mention only visible fashion details.
-- Ask one or two refinement questions only if context is missing and would materially improve the advice.
-- Still give immediately useful advice in the same answer.`;
-		case 'shopping_buying_request':
-			return `Request category: Shopping/buying request.
-Behavior:
-- Help the user decide whether, what, or how to buy.
-- Ask about budget only if it is needed for the buying decision and the user has not provided it.
-- Prioritize practicality, repeat wear, wardrobe fit, and sustainability.
-- Give clear buy / do not buy / consider instead criteria where appropriate.`;
-		case 'significant_request':
-			return `Request category: Significant request.
-Behavior:
-- Treat this as a higher-stakes moment where context and desired impression matter.
-- Ask two to four sharp diagnostic questions before final refinement.
-- Always include a solid provisional recommendation now.
-- Prefer questions about occasion, setting, desired impression, presentation, constraints, and comfort.`;
-		case 'out_of_scope_request':
-			return `Request category: Out-of-scope request.
-Behavior:
-- If the request is not fashion-related, respond only: "I am CLAi, I only give fashion advice."
-- Greetings are not out-of-scope requests; if the user is only greeting CLAi, greet them back and invite a fashion question.
-- Do not answer the non-fashion request.
-- Do not add styling advice, image-generation suggestions, or extra explanation.`;
-		case 'simple_request':
-		default:
-			return `Request category: Simple request.
-Behavior:
-- Ask at most one sharp clarifying question only if it would materially improve the answer.
-- Give a direct, useful answer immediately.
-- Keep the response short and practical.`;
-	}
-}
+Scope rules:
+- In scope: fashion styling, what to wear, packing, wardrobe decisions, modest fashion, color, fit, garment care, cleaning, repair, alterations, textile maintenance, sustainability, outfit-shopping guidance, and where/how to buy recommended fashion items.
+- Out of scope only when the request is clearly unrelated to fashion, clothes, footwear, accessories, textiles, shopping for fashion items, care, repair, alterations, or a fashion follow-up from history.
+- If the latest message is ambiguous but the chat history is fashion-related, treat it as a fashion follow-up and answer it.
+- If out of scope, set answer exactly to: I am CLAi, I only give fashion advice.
 
-function getDiagnosticQuestionPolicy(category: RequestCategory) {
-	switch (category) {
-		case 'greeting_request':
-			return `Diagnostic question policy:
-- Ask no diagnostic questions yet.
-- Respond with a short greeting and invite a fashion question.`;
-		case 'profile_detail_request':
-			return `Diagnostic question policy:
-- Do not ask broad diagnostic questions.
-- Only ask for a missing styling detail if it is still needed for the fashion advice.
-- Do not repeat details the user already provided in the current chat.`;
-		case 'simple_request':
-			return `Diagnostic question policy:
-- Ask 0-1 clarifying question.
-- Ask the question only if the missing detail would materially change the recommendation.
-- Do not pause after asking. Give the answer in the same response.
-- Keep the answer concise and practical.`;
-		case 'significant_request':
-			return `Diagnostic question policy:
-- Ask 2-4 diagnostic questions because this is a higher-stakes styling moment.
-- Include a fast-path provisional answer in the same response.
-- Do not make the user answer before receiving a useful starting point.
-- Questions should focus on occasion, setting, desired impression, presentation, comfort, constraints, weather, or dress code.
-- Make the provisional answer clearly adjustable once the user replies.`;
-		case 'image_based_request':
-			return `Diagnostic question policy:
-- First give a quick visual read based only on visible fashion details.
-- Then ask 1-2 refinement questions only if needed.
-- Still include immediately useful advice before asking refinement questions.
-- If the image and user request already provide enough context, ask no questions.`;
-		case 'shopping_buying_request':
-			return `Diagnostic question policy:
-- Ask only the buying questions needed to make a responsible recommendation.
-- Ask budget only when it would materially change the advice and the user has not provided it.
-- Give clear provisional buy / skip / consider instead guidance in the same response.`;
-		case 'out_of_scope_request':
-		default:
-			return `Diagnostic question policy:
-- Ask no diagnostic questions.
-- Respond only with the fashion-only boundary message.`;
-	}
+Inference rules:
+- Use hard evidence from the user request, chat history, style profile, uploaded image, regional headers, and general world knowledge.
+- If the user gives a destination and month, infer typical seasonal conditions and style implications unless an exact live forecast is essential.
+- If the user gives an occasion, infer likely dress-code pressure and social meaning, then ask only for missing details that materially affect the recommendation.
+- Do not ask questions such as "what is the weather like there?" when the place and month give enough reliable context for provisional advice.
+- Say "assuming..." when an inference is useful but not guaranteed.
+- Never guess sensitive or personal identity details about the asker: race, ethnicity, body type, age, religion, or gender presentation. If gender presentation is needed and is not in the style profile or chat, ask lightly. Do not ask for race or ethnicity.
+
+Intent guidance:
+- Use shopping_advice when the user's primary ask is where to buy, find, source, shop for, compare retailers, get alternatives, find dupes, understand availability, or choose stores/brands for fashion items. Do not invent links.
+- If the user asks for outfit recommendations within a budget, keep the intent as outfit_advice unless they explicitly ask where to buy/source/shop. Treat the budget as a styling constraint, not as shopping_advice.
+- Use fashion_cleaning, fashion_care, fashion_repair, or fashion_alteration for garment, textile, footwear, stain, wash, suede, leather, stitching, patching, hemming, and maintenance questions.
+- Use fashion_sustainability for reuse, circular fashion, ethical buying, wardrobe longevity, repairs over replacement, and lower-waste choices.
+- Use image_analysis when an image is attached and the user asks about the image or outfit.
+- Use outfit_advice for what-to-wear, packing, event, travel, wardrobe, styling, and occasion questions.
+
+Diagnostic behavior:
+${getDiagnosticQuestionBank()}
+${getCurrentChatMemoryPolicy()}
+${getFashionCareScopePolicy()}
+${getScopeDiscretionPolicy()}
+${getNeutralDefaultPolicy()}
+${getCurrentRequestOverridePolicy(prompt)}
+
+Answer format:
+- Write the answer naturally. Do not use visible labels like "Quick read", "Fast path", or "One or two sharp questions".
+- For significant outfit requests, use three natural paragraphs: quick read, useful provisional advice, then two to four sharp questions.
+- For simple requests, ask 0-1 question only if the answer would materially change.
+- For image requests, give the quick visual read first.
+- For shopping/source requests, answer where/how to buy the items using search terms, store categories, retailer types, and practical filters. Do not repeat the full outfit advice unless needed. Ask for country, budget, new/secondhand, or preferred retailers only if needed.
+- Keep answers concise. Do not write an essay.
+- Do not use markdown bold.
+
+Image generation metadata:
+- shouldOfferImageGeneration should be true only when a visual would genuinely help the fashion advice and the user has not merely asked a shopping/source, sustainability-only, or out-of-scope question.
+- Generated visuals should show recommended clothing/items only, not models or people.
+- For outfit visuals, visualPrompt should describe a clean flat-lay or clothing-only recommendation image using the advised garments, footwear, accessories, season, and context.
+- For budget-constrained outfit advice, visualPrompt must still be an outfit board. Do not describe stores, shopping pages, cleaning tools, care supplies, isolated footwear, or product maintenance imagery.
+- For cleaning, care, repair, alteration, or comparison visuals, visualPrompt should describe a clear clothing-only instructional or comparison visual.
+- Use visualIntent to match the visual type.
+- imageButtonLabel should be short, such as "Generate look inspiration", "Generate cleaning visual", "Generate repair visual", "Generate care visual", "Generate alteration visual", or "Generate comparison visual".
+
+${hasImage ? `${imageAnalysisInstruction}\n\n` : ''}
+Saved style profile:
+${styleProfileContext}
+
+Regional context:
+${regionalContext}
+
+Current user request:
+	${prompt || 'Analyze this image and give me fashion advice.'}`;
 }
 
 function getDiagnosticQuestionBank() {
@@ -351,7 +409,7 @@ Wardrobe ownership:
 - Is there anything in your wardrobe you want CLAi to build around?
 
 Weather/setting:
-- What is the weather, season, time of day, or venue condition?
+- What is the weather, season, time of day, or venue condition? Ask this only when it cannot be reasonably inferred from the location, date, season, or event details already provided.
 - Will you be indoors, outdoors, walking, sitting, travelling, or photographed?
 
 Modesty/presentation:
@@ -383,60 +441,20 @@ function getFashionCareScopePolicy() {
 - Give practical warnings when needed, such as avoiding soaking suede, avoiding heat on delicate materials, testing products on a hidden area, and using specialist repair for expensive or delicate items.`;
 }
 
-function getAnswerFormatPolicy(category: RequestCategory) {
-	switch (category) {
-		case 'greeting_request':
-			return `Answer format:
-- One short greeting only.
-- Invite the user to ask a fashion question.
-- Do not use headings.`;
-		case 'profile_detail_request':
-			return `Answer format:
-- One or two short sentences only.
-- No headings, bullets, markdown bold, or long explanation.
-- Do not add a generated-image description.
-- Do not include the fashion-only boundary message.`;
-		case 'out_of_scope_request':
-			return `Answer format:
-- Use only the exact sentence: "I am CLAi, I only give fashion advice."
-- Do not use headings.`;
-		case 'image_based_request':
-			return `Answer format:
-- Use the image response format when an image is attached.
-- If refinement questions are needed, add them after the quick visual read.
-- Do not wrap the answer in a long essay.`;
-		case 'significant_request':
-			return `Answer format:
-Use a natural three-paragraph structure without visible section labels:
-- Paragraph 1: a quick read of what CLAi understands so far.
-- Paragraph 2: useful provisional advice the user can act on now.
-- Paragraph 3: two to four sharp diagnostic questions, only the most relevant ones.
-- Do not write labels such as "Quick read", "Fast path", "Sharp questions", or "Once you answer".
-- Do not use markdown bold.`;
-		case 'shopping_buying_request':
-			return `Answer format:
-Use a natural three-paragraph structure without visible section labels:
-- Paragraph 1: a quick read of what CLAi understands about the buying decision.
-- Paragraph 2: provisional buy / skip / consider instead guidance.
-- Paragraph 3: one or two sharp buying questions only if needed, such as budget, use case, or wardrobe gap.
-- Do not write labels such as "Quick read", "Fast path", "Sharp questions", or "Once you answer".
-- Do not use markdown bold.`;
-		case 'simple_request':
-		default:
-			return `Answer format:
-- Keep the response short.
-- Write naturally without visible section labels.
-- Paragraph 1 should be a quick read only if it helps summarize the request.
-- Paragraph 2 should give useful provisional advice.
-- Paragraph 3 should ask one sharp clarifying question only if genuinely needed.
-- Do not write labels such as "Quick read", "Fast path", "Sharp questions", or "Once you answer".
-- Do not use markdown bold.`;
-	}
+function getScopeDiscretionPolicy() {
+	return `Scope discretion:
+- Before using the fashion-only boundary message, consider the current request together with the current chat history.
+- If the latest user message is short, ambiguous, or uses references such as "these", "those", "this", "that", "them", "it", "the items", "the outfit", "the look", or "where can I buy", and the recent chat is about fashion, treat it as a fashion follow-up.
+- For buying/source follow-ups, answer by using the most recent recommended garments, accessories, or outfit items from chat history.
+- If exact stores are unknown, give useful search terms, store categories, brand/store types, and ask for country, budget, and preferred shopping style only if needed.
+- Use the boundary message only when the user request is clearly unrelated to fashion, clothing, textiles, wardrobe, shopping for fashion items, styling, care, repair, or alterations after considering chat history.`;
 }
 
 function getNeutralDefaultPolicy() {
 	return `Neutral-by-default policy:
 - Do not assume gender, race, ethnicity, body type, size, budget, culture, age, religion, location, or style identity.
+- Do infer practical context from hard evidence such as destination, month, season, venue, occasion, activity, garment photo, and stated constraints.
+- Do not ask for general facts that can be reasonably inferred from hard evidence, such as typical weather for a known destination and month.
 - Do not infer gender from garments, categories, or occasions. Skirts, heels, tailoring, modestwear, and suits do not prove gender.
 - Do not infer race, ethnicity, budget, culture, age, body shape, or style identity from an uploaded image.
 - If a missing detail would materially change the recommendation, ask one light clarifying question.
@@ -537,7 +555,7 @@ export async function POST(request: Request) {
 	const user = await requireAuthenticatedUser(request);
 
 	if (!idToken || !user?.localId) {
-		return NextResponse.json(
+		return noStoreJson(
 			{ error: 'Please log in to use Ask CLAi.' },
 			{ status: 401 }
 		);
@@ -551,14 +569,14 @@ export async function POST(request: Request) {
 			uid: user.localId,
 		});
 	} catch {
-		return NextResponse.json(
+		return noStoreJson(
 			{ error: 'Unable to check your daily message usage.' },
 			{ status: 502 }
 		);
 	}
 
 	if (usage.used >= usage.limit) {
-		return NextResponse.json(
+		return noStoreJson(
 			{
 				error: `You have used all ${usage.limit} CLAi messages for today.`,
 				usage,
@@ -570,7 +588,7 @@ export async function POST(request: Request) {
 	const apiKey = process.env.GEMINI_API_KEY;
 
 	if (!apiKey) {
-		return NextResponse.json(
+		return noStoreJson(
 			{ error: 'GEMINI_API_KEY is not configured.' },
 			{ status: 500 }
 		);
@@ -581,10 +599,7 @@ export async function POST(request: Request) {
 	try {
 		body = (await request.json()) as AskRequestBody;
 	} catch {
-		return NextResponse.json(
-			{ error: 'Invalid request body.' },
-			{ status: 400 }
-		);
+		return noStoreJson({ error: 'Invalid request body.' }, { status: 400 });
 	}
 
 	const prompt = body.prompt?.trim();
@@ -593,22 +608,17 @@ export async function POST(request: Request) {
 	const image = body.image;
 	const hasImage = Boolean(image?.data && image.mimeType);
 	const historyContents = getHistoryContents(body.history);
-	const requestCategory = classifyRequest({
-		hasImage,
-		history: body.history,
-		prompt,
-	});
 	let styleProfileContext = formatStyleProfileForPrompt(null);
 
 	if (!prompt && !hasImage) {
-		return NextResponse.json(
+		return noStoreJson(
 			{ error: 'Please enter a styling question or add an image.' },
 			{ status: 400 }
 		);
 	}
 
 	if (hasImage && !image?.mimeType?.startsWith('image/')) {
-		return NextResponse.json(
+		return noStoreJson(
 			{ error: 'Please upload a valid image file.' },
 			{ status: 400 }
 		);
@@ -626,19 +636,13 @@ export async function POST(request: Request) {
 
 	const parts: GeminiPart[] = [
 		{
-			text: `${contextInstructions[context]}\n\nUser request: ${
-				prompt || 'Analyze this image and give me fashion advice.'
-			}\n\n${getCategoryInstruction(
-				requestCategory
-			)}\n\n${getDiagnosticQuestionPolicy(
-				requestCategory
-			)}\n\n${getAnswerFormatPolicy(
-				requestCategory
-			)}\n\n${getDiagnosticQuestionBank()}\n\n${getCurrentChatMemoryPolicy()}\n\n${getCurrentRequestOverridePolicy(
-				prompt
-			)}\n\n${getFashionCareScopePolicy()}\n\n${getNeutralDefaultPolicy()}\n\n${styleProfileContext}\n\n${
-				hasImage ? `${imageAnalysisInstruction}\n\n` : ''
-			}Regional context: ${getRegionalContext(request)}`,
+			text: getGeminiRoutingPrompt({
+				context,
+				hasImage,
+				prompt,
+				regionalContext: getRegionalContext(request),
+				styleProfileContext,
+			}),
 		},
 	];
 
@@ -668,8 +672,9 @@ export async function POST(request: Request) {
 						},
 					],
 					generationConfig: {
-						temperature: hasImage ? 0.45 : 0.65,
-						maxOutputTokens: hasImage ? 1200 : 4096,
+						temperature: hasImage ? 0.35 : 0.45,
+						maxOutputTokens: hasImage ? 1600 : 2400,
+						responseMimeType: 'application/json',
 					},
 				}),
 			}
@@ -682,7 +687,7 @@ export async function POST(request: Request) {
 				data.error?.message ?? 'Unable to get a response from Gemini.';
 			const isApiKeyBlocked = message.toLowerCase().includes('blocked');
 
-			return NextResponse.json(
+			return noStoreJson(
 				{
 					error: isApiKeyBlocked
 						? 'The Gemini API key is blocked by its Google Cloud restrictions. Check that the key can access Gemini API / generativelanguage.googleapis.com.'
@@ -700,7 +705,7 @@ export async function POST(request: Request) {
 			.trim();
 
 		if (candidate?.finishReason === 'MAX_TOKENS') {
-			return NextResponse.json(
+			return noStoreJson(
 				{
 					error: 'CLAi started a response but did not finish. Please try again.',
 				},
@@ -709,10 +714,37 @@ export async function POST(request: Request) {
 		}
 
 		if (!answer) {
-			return NextResponse.json({
+			return noStoreJson({
 				answer: '',
 				chatId,
 				noTextResponse: true,
+				scope: 'in_scope',
+				intent: 'other_fashion',
+				shouldAskFollowUp: false,
+				shouldOfferImageGeneration: false,
+				suppressGenerateVisual: true,
+				visualIntent: 'outfit',
+				usage,
+			});
+		}
+
+		const routedAnswer = normalizeGeminiRoutingResponse({
+			hasImage,
+			response: parseGeminiRoutingResponse(answer),
+		});
+
+		if (!routedAnswer.answer) {
+			return noStoreJson({
+				answer: '',
+				chatId,
+				noTextResponse: true,
+				scope: routedAnswer.scope,
+				intent: routedAnswer.intent,
+				shouldAskFollowUp: routedAnswer.shouldAskFollowUp,
+				shouldOfferImageGeneration:
+					routedAnswer.shouldOfferImageGeneration,
+				suppressGenerateVisual: routedAnswer.suppressGenerateVisual,
+				visualIntent: routedAnswer.visualIntent,
 				usage,
 			});
 		}
@@ -725,7 +757,7 @@ export async function POST(request: Request) {
 
 		try {
 			await saveAskChatTurn({
-				answer,
+				answer: routedAnswer.answer,
 				chatId,
 				context,
 				hasImage,
@@ -740,14 +772,22 @@ export async function POST(request: Request) {
 			console.error(chatSaveError);
 		}
 
-		return NextResponse.json({
-			answer,
+		return noStoreJson({
+			answer: routedAnswer.answer,
 			chatId,
 			chatSaved,
+			imageButtonLabel: routedAnswer.imageButtonLabel,
+			intent: routedAnswer.intent,
+			scope: routedAnswer.scope,
+			shouldAskFollowUp: routedAnswer.shouldAskFollowUp,
+			shouldOfferImageGeneration: routedAnswer.shouldOfferImageGeneration,
+			suppressGenerateVisual: routedAnswer.suppressGenerateVisual,
 			usage: nextUsage,
+			visualIntent: routedAnswer.visualIntent,
+			visualPrompt: routedAnswer.visualPrompt,
 		});
 	} catch {
-		return NextResponse.json(
+		return noStoreJson(
 			{ error: 'Unable to reach Gemini. Please try again.' },
 			{ status: 502 }
 		);

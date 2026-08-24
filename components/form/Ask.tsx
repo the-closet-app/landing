@@ -54,7 +54,9 @@ type ChatMessage = {
 	role: 'user' | 'assistant';
 	content: string;
 	generatedImageUrl?: string;
+	generatedVisualPrompt?: string;
 	generatedVisualIntent?: VisualIntent;
+	imageButtonLabel?: string;
 	imageData?: string;
 	imageMimeType?: string;
 	imageName?: string;
@@ -317,6 +319,12 @@ function getGenerateVisualLabel(intent: VisualIntent, isLoading: boolean) {
 
 function shouldAutoGenerateVisual(prompt: string) {
 	return /\b(generate|create|make|show|visuali[sz]e|draw|render)\b.*\b(image|visual|picture|illustration|look|outfit|guide|steps?|process|before.?after)\b/i.test(
+		prompt
+	);
+}
+
+function isShoppingSourcePrompt(prompt: string) {
+	return /\b(where|which|what|how)\b.*\b(buy|find|get|order|source|shop|store|stores|brand|brands|retailer|retailers|link|links|price|cost|budget|available|similar|alternative|dupe)\b|\b(?:buy|find|get|order|source|shop)\b.*\b(?:this|that|these|those|them|items?|pieces?|look|outfit|clothes|clothing|wears?)\b|\b(?:this|that|these|those|them|items?|pieces?|look|outfit|clothes|clothing|wears?)\b.*\b(?:buy|find|get|order|source|shop|store|stores|brand|brands|retailer|retailers|link|links|price|cost|available|similar|alternative|dupe)\b/i.test(
 		prompt
 	);
 }
@@ -879,7 +887,14 @@ export function Ask({ variant = 'dark' }: AskProps) {
 				chatId?: string;
 				chatSaved?: boolean;
 				error?: string;
+				imageButtonLabel?: string;
+				intent?: string;
+				scope?: 'in_scope' | 'out_of_scope';
+				shouldOfferImageGeneration?: boolean;
+				suppressGenerateVisual?: boolean;
 				usage?: DailyUsage;
+				visualIntent?: VisualIntent;
+				visualPrompt?: string;
 			};
 
 			if (data.usage) {
@@ -898,6 +913,13 @@ export function Ask({ variant = 'dark' }: AskProps) {
 						? {
 								...message,
 								content: data.answer ?? '',
+								generatedVisualIntent: data.visualIntent,
+								generatedVisualPrompt: data.visualPrompt,
+								imageButtonLabel: data.imageButtonLabel,
+								suppressGenerateVisual:
+									data.suppressGenerateVisual ||
+									!data.shouldOfferImageGeneration ||
+									data.scope === 'out_of_scope',
 							}
 						: message
 				)
@@ -909,10 +931,13 @@ export function Ask({ variant = 'dark' }: AskProps) {
 
 			if (
 				data.answer &&
+				data.shouldOfferImageGeneration &&
+				!data.suppressGenerateVisual &&
 				shouldAutoGenerateVisual(prompt) &&
 				(!data.usage || data.usage.remaining > 0)
 			) {
-				const visualIntent = classifyVisualIntent(prompt);
+				const visualIntent =
+					data.visualIntent ?? classifyVisualIntent(prompt);
 
 				setGeneratingLookForMessageId(assistantMessageId);
 
@@ -933,7 +958,8 @@ export function Ask({ variant = 'dark' }: AskProps) {
 										name: outgoingImage.name,
 									}
 								: undefined,
-							prompt,
+							prompt: data.visualPrompt ?? prompt,
+							visualIntent,
 						}),
 					});
 					const visualData = (await visualResponse.json()) as {
@@ -1022,7 +1048,9 @@ export function Ask({ variant = 'dark' }: AskProps) {
 			.slice(0, assistantIndex)
 			.reverse()
 			.find((message) => message.role === 'user');
-		const visualIntent = classifyVisualIntent(userMessage?.content ?? '');
+		const visualIntent =
+			assistantMessage?.generatedVisualIntent ??
+			classifyVisualIntent(userMessage?.content ?? '');
 
 		if (
 			!assistantMessage ||
@@ -1052,7 +1080,10 @@ export function Ask({ variant = 'dark' }: AskProps) {
 									name: userMessage.imageName,
 								}
 							: undefined,
-					prompt: userMessage?.content,
+					prompt:
+						assistantMessage.generatedVisualPrompt ??
+						userMessage?.content,
+					visualIntent,
 				}),
 			});
 			const data = (await response.json()) as {
@@ -1322,6 +1353,18 @@ export function Ask({ variant = 'dark' }: AskProps) {
 									);
 								const isGeneratingThisVisual =
 									generatingLookForMessageId === message.id;
+								const shouldSuppressGenerateVisual =
+									message.suppressGenerateVisual ||
+									isShoppingSourcePrompt(
+										previousUserMessage?.content ?? ''
+									);
+								const visualButtonLabel = isGeneratingThisVisual
+									? getGenerateVisualLabel(visualIntent, true)
+									: (message.imageButtonLabel ??
+										getGenerateVisualLabel(
+											visualIntent,
+											false
+										));
 
 								return (
 									<div
@@ -1444,7 +1487,7 @@ export function Ask({ variant = 'dark' }: AskProps) {
 											{message.role === 'assistant' &&
 											message.content !==
 												'CLAi is thinking...' &&
-											!message.suppressGenerateVisual &&
+											!shouldSuppressGenerateVisual &&
 											!isOnlyOutOfScopeFashionResponse(
 												message.content
 											) &&
@@ -1468,10 +1511,7 @@ export function Ask({ variant = 'dark' }: AskProps) {
 													}`}
 												>
 													<span className="rounded-full bg-[#1C1C1C] px-4 py-2">
-														{getGenerateVisualLabel(
-															visualIntent,
-															isGeneratingThisVisual
-														)}
+														{visualButtonLabel}
 													</span>
 												</button>
 											) : null}

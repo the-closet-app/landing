@@ -1,17 +1,16 @@
-import { NextResponse } from 'next/server';
-
 import { listSavedChats } from '@/lib/chat-history-server';
 import {
 	getBearerToken,
 	requireAuthenticatedUser,
 } from '@/lib/firebase-auth-server';
+import { noStoreJson } from '@/lib/no-store-response';
 
 export async function GET(request: Request) {
 	const idToken = getBearerToken(request);
 	const user = await requireAuthenticatedUser(request);
 
 	if (!idToken || !user?.localId) {
-		return NextResponse.json(
+		return noStoreJson(
 			{ error: 'Please log in to view chat history.' },
 			{ status: 401 }
 		);
@@ -23,9 +22,9 @@ export async function GET(request: Request) {
 			uid: user.localId,
 		});
 
-		return NextResponse.json({ chats });
+		return noStoreJson({ chats });
 	} catch {
-		return NextResponse.json(
+		return noStoreJson(
 			{ error: 'Unable to load chat history right now.' },
 			{ status: 502 }
 		);

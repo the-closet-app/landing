@@ -1,9 +1,8 @@
-import { NextResponse } from 'next/server';
-
 import {
 	getBearerToken,
 	requireAuthenticatedUser,
 } from '@/lib/firebase-auth-server';
+import { noStoreJson } from '@/lib/no-store-response';
 import {
 	getDailyMessageUsage,
 	incrementDailyMessageUsage,
@@ -14,6 +13,7 @@ type GenerateLookRequestBody = {
 	context?: 'consumer' | 'stylist';
 	prompt?: string;
 	advice?: string;
+	visualIntent?: VisualIntent;
 	image?: {
 		data?: string;
 		mimeType?: string;
@@ -53,6 +53,20 @@ type GeminiInteractionInput =
 	  };
 
 const imageModel = process.env.GEMINI_IMAGE_MODEL ?? 'gemini-3.1-flash-image';
+const visualIntents = new Set<VisualIntent>([
+	'outfit',
+	'cleaning',
+	'repair',
+	'care',
+	'alteration',
+	'comparison',
+]);
+
+function isVisualIntent(value: unknown): value is VisualIntent {
+	return (
+		typeof value === 'string' && visualIntents.has(value as VisualIntent)
+	);
+}
 
 function buildLookPrompt({
 	context,
@@ -115,12 +129,16 @@ ${
 
 Output style:
 - Show only the recommended clothing, footwear, bags, jewelry, and accessories.
+- Every visible object must be a wearable fashion item or wearable accessory.
 - Use a polished flat-lay, product-board, capsule wardrobe, or editorial wardrobe layout.
 - Arrange the items clearly so the user can understand the recommended wear without needing a model.
+- Show complete outfit components: at least one main garment for the upper body and one lower-body garment or full-body garment, plus relevant footwear or accessories when mentioned.
 - Do not show any person, model, mannequin, face, body, hand, skin, or partial human figure.
 - Do not show clothing worn on a body.
 - Do not imply race, ethnicity, religion, body type, age, or identity.
 - Do not create a hanger shot unless the garment naturally needs one for clarity.
+- Do not show cleaning, care, repair, laundry, or maintenance objects: no brushes, cloths, towels, water bowls, soap, polish, sprays, bottles, shoe-care kits, sewing tools, measuring tape, pins, scissors, or workbench setups.
+- If footwear is included, show it as part of a styled outfit board, never as an item being cleaned, repaired, washed, polished, brushed, or maintained.
 - Do not use a busy room, outdoor scene, readable text, logos, shopping labels, or decorative background.
 - Do not add colored outlines, halos, glow, or rim artifacts.
 - Use a clean, simple background that works well inside a web chat response.
@@ -135,6 +153,11 @@ ${prompt || 'Create a modest fashion look inspiration image.'}
 CLAi styling advice to visualize:
 ${advice}
 
+Critical interpretation:
+- This is outfit inspiration only.
+- Convert any budget, shopping, quality, shoe, or care-adjacent language into wearable outfit items.
+- If the advice mentions stores, prices, sales, quality basics, or budget, do not visualize stores, price tags, shopping pages, cleaning supplies, or care tools.
+
 ${
 	hasReferenceImage
 		? 'Use the attached image only as a fashion reference for visible garments, colors, textures, and styling direction. Do not recreate any person or body.'
@@ -147,7 +170,7 @@ export async function POST(request: Request) {
 	const user = await requireAuthenticatedUser(request);
 
 	if (!idToken || !user?.localId) {
-		return NextResponse.json(
+		return noStoreJson(
 			{ error: 'Please log in to generate a look inspiration image.' },
 			{ status: 401 }
 		);
@@ -156,7 +179,7 @@ export async function POST(request: Request) {
 	const apiKey = process.env.GEMINI_API_KEY;
 
 	if (!apiKey) {
-		return NextResponse.json(
+		return noStoreJson(
 			{ error: 'GEMINI_API_KEY is not configured.' },
 			{ status: 500 }
 		);
@@ -170,14 +193,14 @@ export async function POST(request: Request) {
 			uid: user.localId,
 		});
 	} catch {
-		return NextResponse.json(
+		return noStoreJson(
 			{ error: 'Unable to check your daily message usage.' },
 			{ status: 502 }
 		);
 	}
 
 	if (usage.used >= usage.limit) {
-		return NextResponse.json(
+		return noStoreJson(
 			{
 				error: `You have used all ${usage.limit} CLAi messages for today.`,
 				usage,
@@ -191,10 +214,7 @@ export async function POST(request: Request) {
 	try {
 		body = (await request.json()) as GenerateLookRequestBody;
 	} catch {
-		return NextResponse.json(
-			{ error: 'Invalid request body.' },
-			{ status: 400 }
-		);
+		return noStoreJson({ error: 'Invalid request body.' }, { status: 400 });
 	}
 
 	const context = body.context === 'stylist' ? 'stylist' : 'consumer';
@@ -204,21 +224,23 @@ export async function POST(request: Request) {
 	const hasImage = Boolean(image?.data && image.mimeType);
 
 	if (!prompt && !advice) {
-		return NextResponse.json(
+		return noStoreJson(
 			{ error: 'Please ask CLAi for styling advice first.' },
 			{ status: 400 }
 		);
 	}
 
 	if (hasImage && !image?.mimeType?.startsWith('image/')) {
-		return NextResponse.json(
+		return noStoreJson(
 			{ error: 'Please upload a valid image file.' },
 			{ status: 400 }
 		);
 	}
 
 	try {
-		const visualIntent = classifyVisualIntent(prompt);
+		const visualIntent = isVisualIntent(body.visualIntent)
+			? body.visualIntent
+			: classifyVisualIntent(prompt);
 
 		const input: GeminiInteractionInput[] = [
 			{
@@ -265,7 +287,7 @@ export async function POST(request: Request) {
 		const data = (await response.json()) as GeminiInteractionResponse;
 
 		if (!response.ok) {
-			return NextResponse.json(
+			return noStoreJson(
 				{
 					error:
 						data.error?.message ??
@@ -285,7 +307,7 @@ export async function POST(request: Request) {
 			outputImage?.mime_type ?? outputImage?.mimeType ?? 'image/jpeg';
 
 		if (!imageData) {
-			return NextResponse.json(
+			return noStoreJson(
 				{ error: 'Gemini did not return an image.' },
 				{ status: 502 }
 			);
@@ -296,14 +318,14 @@ export async function POST(request: Request) {
 			uid: user.localId,
 		});
 
-		return NextResponse.json({
+		return noStoreJson({
 			imageUrl: `data:${mimeType};base64,${imageData}`,
 			sourceMimeType: mimeType,
 			usage: nextUsage,
 			visualIntent,
 		});
 	} catch {
-		return NextResponse.json(
+		return noStoreJson(
 			{
 				error: 'Unable to reach Gemini image generation. Please try again.',
 			},
