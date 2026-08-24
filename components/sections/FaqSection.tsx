@@ -8,14 +8,19 @@ type FaqSectionProps = {
 	variant: Theme;
 };
 
-const faqs = [
+type Faq = {
+	question: string;
+	answer: string | string[];
+};
+
+const faqs: Faq[] = [
 	{
 		question: 'What is the CLAi Fashion Intelligence Agent?',
-		answer: 'The CLAi Fashion Intelligence Agent is an AI-powered experience designed to help you make more informed fashion decisions. Whether you\'re deciding what to wear, what to buy, how to style an outfit, or how to get more from your wardrobe, CLAi is here to guide you.',
+		answer: "The CLAi Fashion Intelligence Agent is an AI-powered experience designed to help you make more informed fashion decisions. Whether you're deciding what to wear, what to buy, how to style an outfit, or how to get more from your wardrobe, CLAi is here to guide you.",
 	},
 	{
 		question: 'Is CLAi available as an app?',
-		answer: 'Not yet. You\'re currently experiencing the first public beta of CLAi. This Fashion Intelligence Assistant is the first step towards the wider CLAi platform, which is currently in development.',
+		answer: "Not yet. You're currently experiencing the first public beta of CLAi. This Fashion Intelligence Assistant is the first step towards the wider CLAi platform, which is currently in development.",
 	},
 	{
 		question: 'What kinds of questions can I ask?',
@@ -32,6 +37,15 @@ const faqs = [
 	{
 		question: 'How is CLAi different from a general AI chatbot?',
 		answer: 'CLAi has been built specifically for fashion. Rather than providing general-purpose answers, it focuses on fashion guidance and is being developed with input from fashion psychologists and professional stylists to create a more thoughtful and specialised experience.',
+	},
+	{
+		question: 'How does CLAi approach sustainability?',
+		answer: [
+			'CLAi is designed to help people make better fashion decisions — not simply buy more fashion. Where relevant, our recommendations aim to help you make more considered choices, including getting more wear from what you already own, re-styling existing pieces, considering repair, resale or rental, and exploring lower-impact alternatives alongside new purchases.',
+			'We also recognise that AI itself has an environmental footprint. CLAi currently runs on Google Cloud Platform, using Vertex AI — chosen in part for its stronger compliance and data-handling terms. At our current early-stage scale, we are focused on understanding our technology footprint and making responsible choices as we grow, rather than claiming that AI has no environmental impact.',
+			'As CLAi develops, our ambition is to work with technology and infrastructure partners committed to energy efficiency, renewable energy and responsible AI, while continually looking for ways to reduce the environmental impact of the intelligence that powers our platform.',
+			'Ultimately, we don’t believe responsible technology means claiming to have solved every problem. It means being transparent about our impact, making better choices as we scale, and continually looking for ways to do better — for people, fashion, and the planet.',
+		],
 	},
 	{
 		question: 'Will my feedback make a difference?',
@@ -58,9 +72,7 @@ export function FaqSection({ variant }: FaqSectionProps) {
 	return (
 		<section
 			className={`relative z-10 px-4 py-16 sm:py-24 ${
-				isLight
-					? 'text-white'
-					: 'text-white'
+				isLight ? 'text-white' : 'text-white'
 			}`}
 		>
 			<div className="mx-auto flex w-[min(92vw,640px)] flex-col gap-8">
@@ -127,15 +139,23 @@ export function FaqSection({ variant }: FaqSectionProps) {
 									}`}
 								>
 									<div className="overflow-hidden">
-										<p
-											className={`pb-5 font-antique-legacy text-base leading-[1.35] tracking-[-.02em] sm:pb-7 sm:text-[1.2rem] ${
+										<div
+											className={`flex flex-col gap-4 pb-5 font-antique-legacy text-base leading-[1.35] tracking-[-.02em] sm:pb-7 sm:text-[1.2rem] ${
 												isLight
 													? 'text-white/90'
 													: 'text-white/45'
 											}`}
 										>
-											{faq.answer}
-										</p>
+											{Array.isArray(faq.answer) ? (
+												faq.answer.map((paragraph) => (
+													<p key={paragraph}>
+														{paragraph}
+													</p>
+												))
+											) : (
+												<p>{faq.answer}</p>
+											)}
+										</div>
 									</div>
 								</div>
 							</div>
