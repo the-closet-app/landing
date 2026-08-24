@@ -1,146 +1,178 @@
-@import "tailwindcss";
-
-html {
-  overflow: hidden;
-}
+@import 'tailwindcss';
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-antique-legacy);
+	--background: #1c1c1c;
+	--foreground: #ededed;
 }
 
 .font-mackinac {
-  font-family: var(--font-mackinac), sans-serif;
+	font-family: var(--font-mackinac), sans-serif;
 }
 
 .font-antique-legacy {
-  font-family: var(--font-antique-legacy), sans-serif;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+	font-family: var(--font-antique-legacy), sans-serif;
 }
 
 body {
-  overflow: hidden;
-  min-height: 100vh;
-  margin: 0;
-  background-image: url('/clai-back.jpg');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  position: relative;
-  color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
-  animation: bgPan 35s ease-in-out infinite;
-  mix-blend-mode: normal;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-body::before {
-  content: "";
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.35);
-}
-
-@keyframes bgPan {
-  0%, 100% {
-    background-position: left top;
-  }
-  50% {
-    background-position: right bottom;
-  }
-}
-
-@keyframes overlayPulse {
-  0%, 100% {
-    opacity: 0.9;
-    transform: scale(1);
-  }
-  25% {
-    opacity: 0.18;
-    transform: scale(1.02);
-  }
-  50% {
-    opacity: 0.82;
-    transform: scale(1.01);
-  }
-  75% {
-    opacity: 0.22;
-    transform: scale(1.03);
-  }
-}
-
-@keyframes screenPulse {
-  0%, 100% {
-    opacity: 0.05;
-  }
-  25% {
-    opacity: 0.85;
-  }
-  50% {
-    opacity: 0.08;
-  }
-  75% {
-    opacity: 0.9;
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: 0% 0%;
-  }
-  100% {
-    background-position: 100% 100%;
-  }
+	margin: 0;
+	background-color: var(--background);
+	color: var(--foreground);
+	font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+	animation: bgPan 35s ease-in-out infinite;
+	mix-blend-mode: normal;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 }
 
 /* Glass button style for theclai.co badge */
 .glass-btn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  padding: .9rem 1.8rem;
-  border-radius: 100px;
-  background: rgba(255,255,255,0.08);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  cursor: pointer;
-  overflow: hidden;
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: #fff;
+	padding: 0.9rem 1.8rem;
+	border-radius: 100px;
+	background: rgba(255, 255, 255, 0.08);
+	-webkit-backdrop-filter: blur(10px);
+	backdrop-filter: blur(10px);
+	cursor: pointer;
+	overflow: hidden;
 }
 
 .glass-btn::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  right: 0;
-  border-top-left-radius: 100px;
-  border-top-right-radius: 100px;
-  background: rgba(255,255,255,0.22);
-  pointer-events: none;
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 0;
+	right: 0;
+	border-top-left-radius: 100px;
+	border-top-right-radius: 100px;
+	background: rgba(255, 255, 255, 0.22);
+	pointer-events: none;
 }
 
 .glass-btn > span {
-  position: relative;
-  z-index: 1;
-  display: inline-block;
+	position: relative;
+	z-index: 1;
+	display: inline-block;
+}
+
+@keyframes micColorPulse {
+	0%,
+	100% {
+		color: #787878;
+	}
+	50% {
+		color: #f47016;
+	}
+}
+
+.mic-listening {
+	animation: micColorPulse 1.15s ease-in-out infinite;
+}
+
+@keyframes claiLoaderSpin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes claiLoaderColorPulse {
+	0%,
+	100% {
+		color: #787878;
+		opacity: 0.7;
+	}
+	50% {
+		color: #f47016;
+		opacity: 1;
+	}
+}
+
+.clai-loading-mark {
+	animation:
+		claiLoaderSpin 1.8s linear infinite,
+		claiLoaderColorPulse 1.15s ease-in-out infinite;
+	transform-origin: center;
+}
+
+@keyframes claiFloatA {
+	0%,
+	100% {
+		transform: translate3d(0, 0, 0) rotate(-5deg);
+	}
+	50% {
+		transform: translate3d(0.35rem, -0.85rem, 0) rotate(-2deg);
+	}
+}
+
+@keyframes claiFloatB {
+	0%,
+	100% {
+		transform: translate3d(0, 0, 0) rotate(6deg);
+	}
+	50% {
+		transform: translate3d(-0.4rem, -0.7rem, 0) rotate(3deg);
+	}
+}
+
+@keyframes claiFloatC {
+	0%,
+	100% {
+		transform: translate3d(0, 0, 0) rotate(-7deg);
+	}
+	50% {
+		transform: translate3d(0.45rem, 0.7rem, 0) rotate(-10deg);
+	}
+}
+
+@keyframes claiFloatD {
+	0%,
+	100% {
+		transform: translate3d(0, 0, 0) rotate(7deg);
+	}
+	50% {
+		transform: translate3d(-0.45rem, 0.65rem, 0) rotate(10deg);
+	}
+}
+
+.clai-float-a {
+	animation: claiFloatA 8s ease-in-out infinite;
+}
+
+.clai-float-b {
+	animation: claiFloatB 9s ease-in-out infinite;
+}
+
+.clai-float-c {
+	animation: claiFloatC 10s ease-in-out infinite;
+}
+
+.clai-float-d {
+	animation: claiFloatD 8.5s ease-in-out infinite;
+}
+
+textarea {
+	field-sizing: content;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus {
+	-webkit-text-fill-color: #fff;
+	box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.1) inset;
+	caret-color: #fff;
+	transition: background-color 9999s ease-in-out 0s;
+}
+
+.scrollbar-none {
+	scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+	display: none;
 }
