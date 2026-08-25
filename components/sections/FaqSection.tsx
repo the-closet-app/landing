@@ -15,8 +15,8 @@ type Faq = {
 
 const faqs: Faq[] = [
 	{
-		question: 'What is the CLAi Fashion Intelligence Agent?',
-		answer: "The CLAi Fashion Intelligence Agent is an AI-powered experience designed to help you make more informed fashion decisions. Whether you're deciding what to wear, what to buy, how to style an outfit, or how to get more from your wardrobe, CLAi is here to guide you.",
+		question: 'What is the CLAi Fashion Intelligence Assistant?',
+		answer: "CLAi is short for The Closet App Intelligence. The CLAi Fashion Intelligence Assistant is an AI-powered chatbot designed to help you make informed fashion decisions, and get more from fashion in ways that lead to more circular outcomes. Whether you’re deciding what to wear, what to buy, how to style an outfit, or how to get more from your wardrobe, CLAi is here to help. And if you’re a stylist planning a look for a client — for an event or a photoshoot — CLAi can guide you too.",
 	},
 	{
 		question: 'Is CLAi available as an app?',
