@@ -17,6 +17,7 @@ import {
 
 import { GoogleIcon } from '@/components/icons/GoogleIcon';
 import { useToast } from '@/components/toast/ToastProvider';
+import { trackEvent } from '@/lib/analytics';
 import { getFirebaseAuth, googleProvider } from '@/lib/firebase';
 import {
 	getStyleProfileErrorMessage,
@@ -131,10 +132,18 @@ export function AuthModal({
 				if (!existingProfile) {
 					setPendingProfileUser(result.user);
 					setAuthMode('styleProfile');
+					trackEvent('login_completed', {
+						method: 'google_redirect',
+						requires_style_profile: true,
+					});
 					toast.success('Logged in with Google.');
 					return;
 				}
 
+				trackEvent('login_completed', {
+					method: 'google_redirect',
+					requires_style_profile: false,
+				});
 				toast.success('Logged in to CLAi.');
 				onClose();
 			})
@@ -225,6 +234,9 @@ export function AuthModal({
 		try {
 			if (authMode === 'reset') {
 				await sendPasswordResetEmail(getFirebaseAuth(), email);
+				trackEvent('password_reset_requested', {
+					method: 'email',
+				});
 				toast.success('Password reset email sent. Check your inbox.');
 				return;
 			}
@@ -250,10 +262,18 @@ export function AuthModal({
 
 				try {
 					await sendEmailVerification(credential.user);
+					trackEvent('signup_completed', {
+						method: 'email',
+						verification_email_sent: true,
+					});
 					toast.success(
 						'Account created. Check your email to verify your account.'
 					);
 				} catch {
+					trackEvent('signup_completed', {
+						method: 'email',
+						verification_email_sent: false,
+					});
 					toast.info(
 						'Account created. We could not send the verification email yet.'
 					);
@@ -278,10 +298,18 @@ export function AuthModal({
 				}
 
 				if (await maybeShowStyleProfile(credential.user)) {
+					trackEvent('login_completed', {
+						method: 'email',
+						requires_style_profile: true,
+					});
 					toast.success('Logged in to CLAi.');
 					return;
 				}
 
+				trackEvent('login_completed', {
+					method: 'email',
+					requires_style_profile: false,
+				});
 				toast.success('Logged in to CLAi.');
 				onClose();
 			}
@@ -302,10 +330,18 @@ export function AuthModal({
 			);
 
 			if (await maybeShowStyleProfile(credential.user)) {
+				trackEvent('login_completed', {
+					method: 'google',
+					requires_style_profile: true,
+				});
 				toast.success('Logged in with Google.');
 				return;
 			}
 
+			trackEvent('login_completed', {
+				method: 'google',
+				requires_style_profile: false,
+			});
 			toast.success('Logged in with Google.');
 			onClose();
 		} catch (error) {
@@ -337,6 +373,7 @@ export function AuthModal({
 
 		try {
 			await saveStyleProfile(pendingProfileUser, styleProfile);
+			trackEvent('style_profile_saved');
 			toast.success('Style profile saved.');
 			onClose();
 		} catch (error) {
@@ -356,6 +393,7 @@ export function AuthModal({
 
 		try {
 			await saveStyleProfile(pendingProfileUser, {});
+			trackEvent('style_profile_skipped');
 			toast.info('Style profile skipped. CLAi will ask when needed.');
 			onClose();
 		} catch (error) {

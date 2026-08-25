@@ -12,6 +12,7 @@ import { Upload } from '@/components/icons/Upload';
 import { Mic } from '@/components/icons/Mic';
 import { ThemeToggle } from '@/components/theme/ThemeProvider';
 import { useToast } from '@/components/toast/ToastProvider';
+import { trackEvent } from '@/lib/analytics';
 import { getFirebaseAuth } from '@/lib/firebase';
 import { classifyVisualIntent, type VisualIntent } from '@/lib/visual-intent';
 
@@ -673,6 +674,9 @@ export function Ask({ variant = 'dark' }: AskProps) {
 	}
 
 	function handleImageButtonClick() {
+		trackEvent('image_upload_opened', {
+			context: activeContext,
+		});
 		imageInputRef.current?.click();
 	}
 
@@ -721,6 +725,11 @@ export function Ask({ variant = 'dark' }: AskProps) {
 		try {
 			const image = await optimizeImage(file);
 			setSelectedImage(image);
+			trackEvent('image_upload_added', {
+				context: activeContext,
+				mime_type: file.type,
+				size_mb: Number((file.size / 1024 / 1024).toFixed(2)),
+			});
 			toast.success('Image added.');
 		} catch {
 			toast.error('CLAi could not read that image.');
@@ -828,6 +837,11 @@ export function Ask({ variant = 'dark' }: AskProps) {
 		recognitionRef.current?.stop();
 		setIsSubmitting(true);
 		setIsChatOpen(true);
+		trackEvent('ask_clai_started', {
+			context: activeContext,
+			has_image: Boolean(outgoingImage),
+			source: isChatOpen ? 'chat_follow_up' : 'homepage_prompt',
+		});
 		const activeChatId = chatId ?? crypto.randomUUID();
 		setChatId(activeChatId);
 		const history = getChatHistory(messages);

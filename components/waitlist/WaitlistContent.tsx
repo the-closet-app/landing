@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { FormEvent, useState } from 'react';
 
 import { useToast } from '@/components/toast/ToastProvider';
+import { trackEvent } from '@/lib/analytics';
 import { getFirebaseDb } from '@/lib/firebase';
 
 type WaitlistContentProps = {
@@ -49,6 +50,9 @@ export function WaitlistContent({
 
 			await setDoc(waitlistRef, waitlistData, { merge: true });
 			setEmail('');
+			trackEvent('waitlist_signup_completed', {
+				source: 'landing_waitlist',
+			});
 			toast.success("You're on the CLAi waitlist.");
 		} catch (error) {
 			console.error(error);

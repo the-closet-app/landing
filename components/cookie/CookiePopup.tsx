@@ -4,12 +4,11 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import type { Theme } from '@/components/theme/ThemeProvider';
+import { cookieConsentChangedEvent, cookieConsentKey } from '@/lib/analytics';
 
 type CookiePopupProps = {
 	variant: Theme;
 };
-
-const cookieConsentKey = 'clai-cookie-consent';
 
 export function CookiePopup({ variant }: CookiePopupProps) {
 	const [isVisible, setIsVisible] = useState(false);
@@ -34,6 +33,7 @@ export function CookiePopup({ variant }: CookiePopupProps) {
 
 	function saveConsent(choice: 'accepted' | 'rejected') {
 		window.localStorage.setItem(cookieConsentKey, choice);
+		window.dispatchEvent(new Event(cookieConsentChangedEvent));
 		setIsVisible(false);
 	}
 

@@ -32,8 +32,12 @@ export default function CookieNotice() {
 					<p
 						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
 					>
-						Cookies are small text files placed on your device when you visit a website. They are widely used to make websites work, remember your preferences, and provide 
-						information to website owners about how their site is used. CLAi also uses similar technologies such as local storage and session storage, which function in a 
+						Cookies are small text files placed on your device when
+						you visit a website. They are widely used to make
+						websites work, remember your preferences, and provide
+						information to website owners about how their site is
+						used. CLAi also uses similar technologies such as local
+						storage and session storage, which function in a
 						comparable way.
 					</p>
 					<h2
@@ -74,26 +78,24 @@ export default function CookieNotice() {
 							<tbody>
 								{[
 									{
-										purpose:
-											'Strictly necessary',
+										purpose: 'Strictly necessary',
 										information:
 											'Essential for the Service to function - e.g. session management, security, load balancing. These cannot be disabled.',
 									},
 									{
-										purpose:
-											'Analytics / performance',
+										purpose: 'Analytics / performance',
 										information:
 											'Help us understand how visitors use CLAi so we can improve it - e.g. pages visited, time spent, errors encountered.',
 									},
 									{
-										purpose:
-											'Functional',
-										information: 'Remember your choices and preferences - e.g. language, display settings.',
+										purpose: 'Functional',
+										information:
+											'Remember your choices and preferences - e.g. language, display settings.',
 									},
 									{
-										purpose:
-											'Marketing / Advertising',
-										information: 'CLAi does not currently use marketing or advertising cookies. We do not use cookies to serve targeted ads, track users across unrelated websites, or build advertising profiles. If this changes in the future, we will update this Cookie Policy and, where required, ask for user consent before using marketing or advertising cookies.',
+										purpose: 'Marketing / Advertising',
+										information:
+											'CLAi does not currently use marketing or advertising cookies. We do not use cookies to serve targeted ads, track users across unrelated websites, or build advertising profiles. If this changes in the future, we will update this Cookie Policy and, where required, ask for user consent before using marketing or advertising cookies.',
 									},
 								].map((row) => (
 									<tr
@@ -129,17 +131,22 @@ export default function CookieNotice() {
 					<p
 						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
 					>
-						When you first visit CLAi, you will be asked to accept or reject non-essential cookies.
+						When you first visit CLAi, you will be asked to accept
+						or reject non-essential cookies.
 					</p>
 					<p
 						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
 					>
-						You can also control cookies through your browser settings. Most browsers allow you to refuse or delete cookies. Note that refusing strictly necessary cookies may affect the functionality of the Service.
+						You can also control cookies through your browser
+						settings. Most browsers allow you to refuse or delete
+						cookies. Note that refusing strictly necessary cookies
+						may affect the functionality of the Service.
 					</p>
 					<p
 						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
 					>
-						For more information on controlling cookies, visit: www.aboutcookies.org or www.allaboutcookies.org.
+						For more information on controlling cookies, visit:
+						www.aboutcookies.org or www.allaboutcookies.org.
 					</p>
 					<h2
 						className={`z-10 mt-4 text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}
@@ -149,7 +156,21 @@ export default function CookieNotice() {
 					<p
 						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
 					>
-						CLAi does not currently use marketing or advertising cookies. We do not use third-party cookies for targeted advertising, retargeting, social media tracking, or cross-site advertising profiles.
+						If you accept non-essential cookies, CLAi may use Google
+						Analytics to understand site usage, performance and
+						product engagement. Google Analytics is provided by
+						Google; you can read more in Google&apos;s Privacy
+						Policy at policies.google.com/privacy and Google&apos;s
+						cookie information at
+						policies.google.com/technologies/cookies.
+					</p>
+					<p
+						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
+					>
+						CLAi does not currently use marketing or advertising
+						cookies. We do not use cookies for targeted advertising,
+						retargeting, social media tracking, or cross-site
+						advertising profiles.
 					</p>
 					<h2
 						className={`z-10 mt-4 text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}
@@ -159,7 +180,11 @@ export default function CookieNotice() {
 					<p
 						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
 					>
-						If you are a California resident, you may have additional rights regarding the use of cookies and personal information. Please see our Privacy Policy for your CCPA/CPRA rights and contact info@theclai.co to exercise them.
+						If you are a California resident, you may have
+						additional rights regarding the use of cookies and
+						personal information. Please see our Privacy Policy for
+						your CCPA/CPRA rights and contact info@theclai.co to
+						exercise them.
 					</p>
 					<h2
 						className={`z-10 mt-4 text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}
@@ -169,7 +194,8 @@ export default function CookieNotice() {
 					<p
 						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
 					>
-						For further information on how we handle your personal data, please see our Privacy Policy.
+						For further information on how we handle your personal
+						data, please see our Privacy Policy.
 					</p>
 					<h2
 						className={`z-10 mt-4 text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}
@@ -179,7 +205,10 @@ export default function CookieNotice() {
 					<p
 						className={`z-10 text-left font-antique-legacy text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.1rem] ${bodyClass}`}
 					>
-						We may update this Cookie Notice from time to time as our use of cookies changes or as the law requires. We will post the updated version here with a revised &quot;last updated&quot; date.
+						We may update this Cookie Notice from time to time as
+						our use of cookies changes or as the law requires. We
+						will post the updated version here with a revised
+						&quot;last updated&quot; date.
 					</p>
 					<h2
 						className={`z-10 mt-4 text-left font-mackinac text-base font-normal leading-[1.4] tracking-[-.01em] sm:text-[1.5rem] ${subheadingClass}`}

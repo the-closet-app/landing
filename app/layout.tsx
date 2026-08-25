@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { GoogleAnalytics } from '@/components/analytics/GoogleAnalytics';
 import { ThemeProvider } from '@/components/theme/ThemeProvider';
 import { ToastProvider } from '@/components/toast/ToastProvider';
 
@@ -25,6 +26,7 @@ export default function RootLayout({
 				<ThemeProvider>
 					<ToastProvider>{children}</ToastProvider>
 				</ThemeProvider>
+				<GoogleAnalytics />
 			</body>
 		</html>
 	);

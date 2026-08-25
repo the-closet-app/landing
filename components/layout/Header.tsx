@@ -16,6 +16,7 @@ import {
 } from '@/components/theme/ThemeProvider';
 import { useToast } from '@/components/toast/ToastProvider';
 import { WaitlistModal } from '@/components/waitlist/WaitlistModal';
+import { trackEvent } from '@/lib/analytics';
 import { getFirebaseAuth } from '@/lib/firebase';
 
 function getUserInitial(user: User) {
@@ -75,7 +76,24 @@ export function Header({ variant }: HeaderProps) {
 		setIsAccountMenuOpen(false);
 		await signOut(getFirebaseAuth());
 		setIsProfileModalOpen(false);
+		trackEvent('logout_completed', {
+			source: 'header',
+		});
 		toast.success('Logged out of CLAi.');
+	}
+
+	function openAuthModal() {
+		trackEvent('auth_modal_opened', {
+			source: 'header',
+		});
+		setIsAuthModalOpen(true);
+	}
+
+	function openWaitlistModal() {
+		trackEvent('waitlist_modal_opened', {
+			source: 'header',
+		});
+		setIsWaitlistModalOpen(true);
 	}
 
 	const activeVariant = variant ?? theme;
@@ -170,7 +188,7 @@ export function Header({ variant }: HeaderProps) {
 							) : (
 								<button
 									type="button"
-									onClick={() => setIsAuthModalOpen(true)}
+									onClick={openAuthModal}
 									className={`flex h-10 items-center whitespace-nowrap rounded-full px-4 text-sm font-medium tracking-[-.02em] shadow-[0_20px_70px_rgba(255,111,24,0.05),inset_0_1px_0_rgba(255,255,255,0.08)] sm:h-12 sm:px-6 sm:text-lg ${
 										isLight
 											? 'bg-transparent text-white'
@@ -182,7 +200,7 @@ export function Header({ variant }: HeaderProps) {
 							)}
 							<button
 								type="button"
-								onClick={() => setIsWaitlistModalOpen(true)}
+								onClick={openWaitlistModal}
 								className={`flex h-10 items-center whitespace-nowrap rounded-full px-4 text-sm font-medium tracking-[-.02em] transition sm:h-12 sm:px-6 sm:text-lg ${
 									isLight
 										? 'bg-white text-[#1C1C1C] shadow-[0_14px_30px_rgba(80,111,175,0.18)] hover:bg-white/90'
