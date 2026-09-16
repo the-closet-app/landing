@@ -22,6 +22,7 @@ export type SavedChatSummary = {
 };
 
 export type SavedChatMessage = {
+	feedback?: 'up' | 'down';
 	id: string;
 	content: string;
 	createdAt: string;
@@ -219,6 +220,7 @@ async function writeChatMessage({
 	if (!response.ok) {
 		throw new Error('Unable to save chat message.');
 	}
+	return messageId;
 }
 
 export async function saveAskChatTurn({
@@ -264,7 +266,7 @@ export async function saveAskChatTurn({
 		timestamp,
 		uid,
 	});
-	await writeChatMessage({
+	return writeChatMessage({
 		chatId,
 		content: answer,
 		hasImage: false,
@@ -371,6 +373,7 @@ export async function getSavedChatMessages({
 
 			return {
 				content: getStringField(fields, 'content'),
+				feedback: getStringField(fields, 'feedback'),
 				createdAt: getTimestampField(fields, 'createdAt'),
 				hasImage: getBooleanField(fields, 'hasImage'),
 				id: getDocumentId(document.name),
@@ -391,6 +394,10 @@ export async function getSavedChatMessages({
 			(message) =>
 				({
 					content: message.content,
+					feedback:
+						message.feedback === 'up' || message.feedback === 'down'
+							? message.feedback
+							: undefined,
 					createdAt: message.createdAt,
 					hasImage: message.hasImage,
 					id: message.id,
@@ -399,4 +406,59 @@ export async function getSavedChatMessages({
 					role: message.role,
 				}) satisfies SavedChatMessage
 		);
+}
+
+export async function saveMessageFeedback(
+	chatId: string,
+	messageId: string,
+	feedback: SavedChatMessage['feedback'] | null,
+	idToken: string,
+	uid: string
+) {
+	const messageUrl = `${getChatMessagesUrl(chatId)}/${encodeURIComponent(messageId)}`;
+	const chatResponse = await fetch(getChatDocumentUrl(chatId), {
+		headers: getFirestoreHeaders(idToken),
+		cache: 'no-store',
+	});
+	if (!chatResponse.ok) {
+		throw new Error(
+			`Firestore feedback: chat read failed (HTTP ${chatResponse.status}).`
+		);
+	}
+	const chat = (await chatResponse.json()) as FirestoreDocument;
+	if (getStringField(chat.fields, 'uid') !== uid)
+		throw new Error('Unable to access this chat.');
+	const messageResponse = await fetch(messageUrl, {
+		headers: getFirestoreHeaders(idToken),
+		cache: 'no-store',
+	});
+	if (!messageResponse.ok) {
+		throw new Error(
+			`Firestore feedback: message read failed (HTTP ${messageResponse.status}).`
+		);
+	}
+	const message = (await messageResponse.json()) as FirestoreDocument;
+	if (
+		getStringField(message.fields, 'uid') !== uid ||
+		getStringField(message.fields, 'role') !== 'assistant'
+	) {
+		throw new Error('Unable to rate this response.');
+	}
+	const fields: Record<string, FirestoreValue> = {
+		feedbackUpdatedAt: { timestampValue: new Date().toISOString() },
+	};
+	if (feedback) fields.feedback = { stringValue: feedback };
+	const response = await fetch(
+		`${messageUrl}?updateMask.fieldPaths=feedback&updateMask.fieldPaths=feedbackUpdatedAt&currentDocument.exists=true`,
+		{
+			method: 'PATCH',
+			headers: getFirestoreHeaders(idToken),
+			body: JSON.stringify(toFirestoreFields(fields)),
+		}
+	);
+	if (!response.ok) {
+		throw new Error(
+			`Firestore feedback: message update failed (HTTP ${response.status}).`
+		);
+	}
 }

@@ -7,6 +7,8 @@ import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
 
 import { AuthModal } from '@/components/auth/AuthModal';
+import { ResponseFeedback } from '@/components/form/ResponseFeedback';
+import type { SavedChatMessage } from '@/lib/chat-history-server';
 import { ClaiMark } from '@/components/icons/ClaiMark';
 import { Upload } from '@/components/icons/Upload';
 import { Mic } from '@/components/icons/Mic';
@@ -51,6 +53,8 @@ type SelectedImage = {
 };
 
 type ChatMessage = {
+	savedMessageId?: string;
+	feedback?: SavedChatMessage['feedback'];
 	id: string;
 	role: 'user' | 'assistant';
 	content: string;
@@ -70,16 +74,6 @@ type SavedChatSummary = {
 	context: ContextOption;
 	lastMessage: string;
 	updatedAt: string;
-};
-
-type SavedChatMessage = {
-	id: string;
-	content: string;
-	createdAt: string;
-	hasImage: boolean;
-	imageMimeType?: string;
-	imageName?: string;
-	role: 'assistant' | 'user';
 };
 
 type ChatHistoryGroup = {
@@ -791,6 +785,8 @@ export function Ask({ variant = 'dark' }: AskProps) {
 				(data.messages ?? []).map((message) => ({
 					content: message.content,
 					id: message.id,
+					savedMessageId: message.id,
+					feedback: message.feedback,
 					imageMimeType: message.imageMimeType,
 					imageName: message.imageName,
 					role: message.role,
@@ -900,6 +896,7 @@ export function Ask({ variant = 'dark' }: AskProps) {
 				answer?: string;
 				chatId?: string;
 				chatSaved?: boolean;
+				assistantMessageId?: string;
 				error?: string;
 				imageButtonLabel?: string;
 				intent?: string;
@@ -927,6 +924,7 @@ export function Ask({ variant = 'dark' }: AskProps) {
 						? {
 								...message,
 								content: data.answer ?? '',
+								savedMessageId: data.assistantMessageId,
 								generatedVisualIntent: data.visualIntent,
 								generatedVisualPrompt: data.visualPrompt,
 								imageButtonLabel: data.imageButtonLabel,
@@ -1367,6 +1365,12 @@ export function Ask({ variant = 'dark' }: AskProps) {
 									);
 								const isGeneratingThisVisual =
 									generatingLookForMessageId === message.id;
+								const imageFileExtension =
+									message.generatedImageUrl
+										?.match(
+											/^data:image\/([a-z0-9]+);/i
+										)?.[1]
+										.replace('jpeg', 'jpg');
 								const shouldSuppressGenerateVisual =
 									message.suppressGenerateVisual ||
 									isShoppingSourcePrompt(
@@ -1490,13 +1494,36 @@ export function Ask({ variant = 'dark' }: AskProps) {
 												</ReactMarkdown>
 											)}
 											{message.generatedImageUrl ? (
-												<img
-													src={
-														message.generatedImageUrl
-													}
-													alt={`Generated ${visualIntent} fashion visual`}
-													className="mt-5 max-h-[58vh] w-full max-w-[320px] object-contain drop-shadow-[0_18px_32px_rgba(0,0,0,0.38)] sm:max-h-[520px] sm:max-w-[360px]"
-												/>
+												<div className="mt-5">
+													<img
+														src={
+															message.generatedImageUrl
+														}
+														alt={`Generated ${visualIntent} fashion visual`}
+														className="max-h-[58vh] w-full max-w-[320px] object-contain drop-shadow-[0_18px_32px_rgba(0,0,0,0.38)] sm:max-h-[520px] sm:max-w-[360px]"
+													/>
+													<a
+														href={
+															message.generatedImageUrl
+														}
+														download={`clai-${visualIntent}-${message.id}${imageFileExtension ? `.${imageFileExtension}` : ''}`}
+														className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-sm text-white/80 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E6CFE1]"
+													>
+														<svg
+															viewBox="0 0 24 24"
+															fill="none"
+															stroke="currentColor"
+															strokeWidth="1.8"
+															strokeLinecap="round"
+															strokeLinejoin="round"
+															aria-hidden="true"
+															className="size-5"
+														>
+															<path d="M12 3v12m-5-5 5 5 5-5M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4" />
+														</svg>
+														Download image
+													</a>
+												</div>
 											) : null}
 											{message.role === 'assistant' &&
 											message.content !==
@@ -1528,6 +1555,38 @@ export function Ask({ variant = 'dark' }: AskProps) {
 														{visualButtonLabel}
 													</span>
 												</button>
+											) : null}
+											{message.role === 'assistant' &&
+											message.content &&
+											message.savedMessageId &&
+											chatId &&
+											user ? (
+												<ResponseFeedback
+													key={`${chatId}/${message.savedMessageId}`}
+													chatId={chatId}
+													messageId={
+														message.savedMessageId
+													}
+													user={user}
+													feedback={message.feedback}
+													onChange={(feedback) =>
+														setMessages(
+															(currentMessages) =>
+																currentMessages.map(
+																	(
+																		currentMessage
+																	) =>
+																		currentMessage.id ===
+																		message.id
+																			? {
+																					...currentMessage,
+																					feedback,
+																				}
+																			: currentMessage
+																)
+														)
+													}
+												/>
 											) : null}
 										</article>
 									</div>

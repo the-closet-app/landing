@@ -754,9 +754,10 @@ export async function POST(request: Request) {
 			uid: user.localId,
 		});
 		let chatSaved = true;
+		let assistantMessageId: string | undefined;
 
 		try {
-			await saveAskChatTurn({
+			assistantMessageId = await saveAskChatTurn({
 				answer: routedAnswer.answer,
 				chatId,
 				context,
@@ -776,6 +777,7 @@ export async function POST(request: Request) {
 			answer: routedAnswer.answer,
 			chatId,
 			chatSaved,
+			assistantMessageId,
 			imageButtonLabel: routedAnswer.imageButtonLabel,
 			intent: routedAnswer.intent,
 			scope: routedAnswer.scope,
