@@ -101,7 +101,7 @@ export function Header({ variant }: HeaderProps) {
 
 	return (
 		<>
-			<header className="z-20 flex items-center justify-center px-3 py-5 sm:px-4 sm:py-10">
+			<header className="relative z-20 flex items-center justify-center px-3 py-5 sm:px-4 sm:py-10">
 				<div className="flex w-[min(94vw,720px)] flex-col items-center gap-10 text-center text-white sm:gap-8">
 					<nav
 						className={`mx-auto flex w-full items-center justify-between gap-2 rounded-full px-1 py-1 backdrop-blur-[10px] sm:gap-4 sm:p-2 ${
