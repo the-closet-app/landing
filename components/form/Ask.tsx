@@ -1073,7 +1073,7 @@ export function Ask({ variant = 'dark' }: AskProps) {
 
 		if (hasNoCredits) {
 			toast.info(
-				`You have used all ${dailyUsage?.limit ?? 20} CLAi messages for today.`
+				`You have used all ${dailyUsage?.limit ?? 100} CLAi messages for today.`
 			);
 			return;
 		}
