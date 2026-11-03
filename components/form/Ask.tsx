@@ -58,6 +58,7 @@ type ChatMessage = {
 	id: string;
 	role: 'user' | 'assistant';
 	content: string;
+	isError?: boolean;
 	generatedImageUrl?: string;
 	generatedVisualPrompt?: string;
 	generatedVisualIntent?: VisualIntent;
@@ -216,6 +217,7 @@ function getChatHistory(messages: ChatMessage[]) {
 		.filter(
 			(message) =>
 				message.content &&
+				!message.isError &&
 				message.content !== 'CLAi is thinking...' &&
 				!message.generatedImageUrl
 		)
@@ -909,7 +911,11 @@ export function Ask({ variant = 'dark' }: AskProps) {
 				}),
 			});
 
-			const data = (await response.json()) as {
+			const data = (await response.json().catch(() => {
+				throw new Error(
+					'CLAi could not complete the request. Please try again.'
+				);
+			})) as {
 				answer?: string;
 				chatId?: string;
 				chatSaved?: boolean;
@@ -1034,9 +1040,11 @@ export function Ask({ variant = 'dark' }: AskProps) {
 			}
 		} catch (submitError) {
 			const message =
-				submitError instanceof Error
-					? submitError.message
-					: 'CLAi could not answer right now.';
+				submitError instanceof TypeError
+					? 'Connection interrupted. Please check your connection and try again.'
+					: submitError instanceof Error
+						? submitError.message
+						: 'CLAi could not answer right now.';
 
 			toast.error(message);
 			setMessages((currentMessages) =>
@@ -1045,6 +1053,8 @@ export function Ask({ variant = 'dark' }: AskProps) {
 						? {
 								...chatMessage,
 								content: message,
+								isError: true,
+								suppressGenerateVisual: true,
 							}
 						: chatMessage
 				)
@@ -1083,6 +1093,7 @@ export function Ask({ variant = 'dark' }: AskProps) {
 
 		if (
 			!assistantMessage ||
+			assistantMessage.isError ||
 			assistantMessage.content === 'CLAi is thinking...'
 		) {
 			return;
@@ -1390,6 +1401,7 @@ export function Ask({ variant = 'dark' }: AskProps) {
 										.replace('jpeg', 'jpg');
 								const shouldSuppressGenerateVisual =
 									message.suppressGenerateVisual ||
+									message.isError ||
 									isShoppingSourcePrompt(
 										previousUserMessage?.content ?? ''
 									);

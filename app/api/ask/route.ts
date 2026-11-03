@@ -14,6 +14,8 @@ import {
 } from '@/lib/style-profile-server';
 import type { VisualIntent } from '@/lib/visual-intent';
 
+export const maxDuration = 60;
+
 type AskRequestBody = {
 	prompt?: string;
 	context?: 'consumer' | 'stylist';
@@ -352,6 +354,7 @@ Answer format:
 - For image requests, give the quick visual read first.
 - For shopping/source requests, answer where/how to buy the items using search terms, store categories, retailer types, and practical filters. Do not repeat the full outfit advice unless needed. Ask for country, budget, new/secondhand, or preferred retailers only if needed.
 - Keep answers concise. Do not write an essay.
+- Keep the answer under 200 words and the visualPrompt under 100 words.
 - Do not use markdown bold.
 
 Image generation metadata:
@@ -656,31 +659,47 @@ export async function POST(request: Request) {
 	}
 
 	try {
-		const response = await fetch(
-			`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-			{
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({
-					contents: [
-						...historyContents,
-						{
-							role: 'user',
-							parts,
-						},
-					],
-					generationConfig: {
-						temperature: hasImage ? 0.35 : 0.45,
-						maxOutputTokens: hasImage ? 1600 : 2400,
-						responseMimeType: 'application/json',
-					},
-				}),
-			}
-		);
+		const signal = AbortSignal.timeout(45000);
 
-		const data = (await response.json()) as GeminiResponse;
+		async function generateResponse(maxOutputTokens: number) {
+			const response = await fetch(
+				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+				{
+					method: 'POST',
+					signal,
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({
+						contents: [
+							...historyContents,
+							{
+								role: 'user',
+								parts,
+							},
+						],
+						generationConfig: {
+							temperature: hasImage ? 0.35 : 0.45,
+							maxOutputTokens,
+							thinkingConfig: { thinkingBudget: 1024 },
+							responseMimeType: 'application/json',
+						},
+					}),
+				}
+			);
+
+			const data = (await response.json()) as GeminiResponse;
+			return { response, data };
+		}
+
+		let { response, data } = await generateResponse(8192);
+
+		if (
+			response.ok &&
+			data.candidates?.[0]?.finishReason === 'MAX_TOKENS'
+		) {
+			({ response, data } = await generateResponse(16384));
+		}
 
 		if (!response.ok) {
 			const message =
@@ -788,7 +807,14 @@ export async function POST(request: Request) {
 			visualIntent: routedAnswer.visualIntent,
 			visualPrompt: routedAnswer.visualPrompt,
 		});
-	} catch {
+	} catch (error) {
+		if (error instanceof Error && error.name === 'TimeoutError') {
+			return noStoreJson(
+				{ error: 'CLAi took too long to respond. Please try again.' },
+				{ status: 504 }
+			);
+		}
+
 		return noStoreJson(
 			{ error: 'Unable to reach Gemini. Please try again.' },
 			{ status: 502 }
