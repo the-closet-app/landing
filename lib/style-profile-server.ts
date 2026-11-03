@@ -5,11 +5,13 @@ type FirestoreField = {
 type FirestoreDocument = {
 	fields?: {
 		gender?: FirestoreField;
+		fashionSense?: FirestoreField;
 	};
 };
 
 export type ServerStyleProfile = {
 	gender?: string;
+	fashionSense?: string;
 };
 
 const collectionName = 'claiUserProfiles';
@@ -41,6 +43,7 @@ export function formatStyleProfileForPrompt(
 
 	const details = [
 		profile.gender ? `Gender / presentation: ${profile.gender}` : null,
+		profile.fashionSense ? `Fashion sense: ${profile.fashionSense}` : null,
 	].filter(Boolean);
 
 	if (!details.length) {
@@ -75,5 +78,6 @@ export async function getServerStyleProfile({
 
 	return {
 		gender: getStringValue(data.fields?.gender),
+		fashionSense: getStringValue(data.fields?.fashionSense),
 	};
 }

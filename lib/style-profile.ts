@@ -13,7 +13,10 @@ import { getFirebaseDb } from '@/lib/firebase';
 
 export type StyleProfileInput = {
 	gender?: string;
+	fashionSense?: string;
 };
+
+export const FASHION_SENSE_OPTIONS = ['Luxury', 'Chic', 'Practical'] as const;
 
 export type StyleProfile = StyleProfileInput & {
 	createdAt?: DocumentData;
@@ -29,6 +32,9 @@ function cleanProfileValue(value?: string) {
 export function normalizeStyleProfile(profile: StyleProfileInput) {
 	return {
 		gender: cleanProfileValue(profile.gender),
+		fashionSense: FASHION_SENSE_OPTIONS.find(
+			(option) => option === profile.fashionSense
+		),
 	};
 }
 
@@ -43,7 +49,7 @@ function removeUndefinedValues(profile: StyleProfileInput) {
 export function hasStyleProfileValue(profile: StyleProfileInput) {
 	const normalized = normalizeStyleProfile(profile);
 
-	return Boolean(normalized.gender);
+	return Boolean(normalized.gender || normalized.fashionSense);
 }
 
 export async function getStyleProfile(user: User) {

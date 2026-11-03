@@ -348,6 +348,23 @@ export function Ask({ variant = 'dark' }: AskProps) {
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 	const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+	useEffect(() => {
+		function openHistory() {
+			setIsHistoryOpen(true);
+		}
+
+		const url = new URL(window.location.href);
+		if (url.searchParams.get('history') === 'open') {
+			openHistory();
+			url.searchParams.delete('history');
+			window.history.replaceState(window.history.state, '', url);
+		}
+
+		window.addEventListener('clai:open-chat-history', openHistory);
+		return () =>
+			window.removeEventListener('clai:open-chat-history', openHistory);
+	}, []);
 	const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 	const [historyError, setHistoryError] = useState('');
 	const [chatHistory, setChatHistory] = useState<SavedChatSummary[]>([]);

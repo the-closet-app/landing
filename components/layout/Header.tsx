@@ -146,7 +146,7 @@ export function Header({ variant }: HeaderProps) {
 										{getUserInitial(user)}
 									</button>
 									<div
-										className={`absolute right-[-10px] top-[calc(100%+0.5rem)] z-100 w-35 rounded-3xl p-2 text-left shadow-[0_20px_60px_rgba(0,0,0,0.18)] backdrop-blur-[10px] transition ${
+										className={`absolute right-[-10px] top-[calc(100%+0.5rem)] z-100 w-48 rounded-3xl p-2 text-left shadow-[0_20px_60px_rgba(0,0,0,0.18)] backdrop-blur-[10px] transition ${
 											isAccountMenuOpen
 												? 'visible opacity-100'
 												: 'invisible pointer-events-none opacity-0'
@@ -171,6 +171,49 @@ export function Header({ variant }: HeaderProps) {
 											<ProfileIcon className="size-5 shrink-0" />
 											Profile
 										</button>
+										<Link
+											href="/?history=open"
+											onClick={(event) => {
+												setIsAccountMenuOpen(false);
+												if (
+													window.location.pathname ===
+													'/'
+												) {
+													event.preventDefault();
+													window.dispatchEvent(
+														new Event(
+															'clai:open-chat-history'
+														)
+													);
+												}
+											}}
+											className={`flex w-full items-center gap-3 rounded-2xl px-4 py-2 text-left font-antique-legacy text-[1.1rem] transition ${
+												isLight
+													? 'text-[#1C1C1C]/70 hover:bg-[#F47016]/10 hover:text-[#1C1C1C]'
+													: 'text-white/70 hover:bg-white/10 hover:text-white'
+											}`}
+										>
+											<svg
+												className="size-5 shrink-0"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												strokeWidth="1.5"
+												aria-hidden="true"
+											>
+												<path
+													d="M3 11a9 9 0 1 1 2.6 7.4M3 4v7h7"
+													strokeLinecap="round"
+													strokeLinejoin="round"
+												/>
+												<path
+													d="M12 7v5l3 2"
+													strokeLinecap="round"
+													strokeLinejoin="round"
+												/>
+											</svg>
+											Chat History
+										</Link>
 										<button
 											type="button"
 											onClick={handleLogout}

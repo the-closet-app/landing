@@ -7,6 +7,7 @@ import { createPortal } from 'react-dom';
 import { ClaiMark } from '@/components/icons/ClaiMark';
 import { useToast } from '@/components/toast/ToastProvider';
 import {
+	FASHION_SENSE_OPTIONS,
 	getStyleProfileErrorMessage,
 	getStyleProfile,
 	saveStyleProfile,
@@ -60,6 +61,7 @@ export function ProfileModal({
 	const [isLoggingOut, setIsLoggingOut] = useState(false);
 	const [styleProfile, setStyleProfile] = useState<StyleProfileInput>({
 		gender: '',
+		fashionSense: '',
 	});
 	const isMounted = useSyncExternalStore(
 		subscribeToClient,
@@ -170,6 +172,7 @@ export function ProfileModal({
 				if (isActive) {
 					setStyleProfile({
 						gender: profile?.gender ?? '',
+						fashionSense: profile?.fashionSense ?? '',
 					});
 				}
 			} catch {
@@ -353,11 +356,47 @@ export function ProfileModal({
 								/>
 							</p>
 
+							<fieldset
+								disabled={isLoadingProfile || isSavingProfile}
+							>
+								<legend
+									className={`mb-2 text-[0.8rem] uppercase tracking-[.08em] ${labelTextColor}`}
+								>
+									Describe your fashion sense
+								</legend>
+								<div className="flex flex-wrap gap-5">
+									{FASHION_SENSE_OPTIONS.map((option) => (
+										<label
+											key={option}
+											className="flex cursor-pointer items-center gap-2 rounded-full text-[1em] has-disabled:cursor-not-allowed has-disabled:opacity-60"
+										>
+											<input
+												type="radio"
+												name="fashionSense"
+												value={option}
+												checked={
+													styleProfile.fashionSense ===
+													option
+												}
+												onChange={() =>
+													updateStyleProfile(
+														'fashionSense',
+														option
+													)
+												}
+												className="accent-[#F47016]"
+											/>
+											{option}
+										</label>
+									))}
+								</div>
+							</fieldset>
+
 							<button
 								type="button"
 								onClick={handleSaveStyleProfile}
 								disabled={isLoadingProfile || isSavingProfile}
-								className="mt-3 h-[52px] w-full rounded-full bg-[#F47016] px-6 font-antique-legacy text-lg font-medium tracking-[-.02em] text-white transition hover:bg-[#F47016] disabled:cursor-not-allowed disabled:opacity-60 sm:h-14 sm:text-[1.2rem]"
+								className="mt-5 h-[52px] w-full rounded-full bg-[#F47016] px-6 font-antique-legacy text-lg font-medium tracking-[-.02em] text-white transition hover:bg-[#F47016] disabled:cursor-not-allowed disabled:opacity-60 sm:h-14 sm:text-[1.2rem]"
 							>
 								{isSavingProfile
 									? 'Saving...'
