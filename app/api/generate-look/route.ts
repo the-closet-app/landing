@@ -12,6 +12,7 @@ import { classifyVisualIntent, type VisualIntent } from '@/lib/visual-intent';
 type GenerateLookRequestBody = {
 	context?: 'consumer' | 'stylist';
 	prompt?: string;
+	userPrompt?: string;
 	advice?: string;
 	visualIntent?: VisualIntent;
 	image?: {
@@ -71,12 +72,14 @@ function isVisualIntent(value: unknown): value is VisualIntent {
 function buildLookPrompt({
 	context,
 	prompt,
+	userPrompt,
 	advice,
 	hasReferenceImage,
 	visualIntent,
 }: {
 	context: 'consumer' | 'stylist';
 	prompt: string;
+	userPrompt: string;
 	advice: string;
 	hasReferenceImage: boolean;
 	visualIntent: VisualIntent;
@@ -84,7 +87,7 @@ function buildLookPrompt({
 	const audience =
 		context === 'stylist'
 			? 'for a professional stylist or fashion creator to use as client-ready visual direction'
-			: 'for a modest fashion user who wants practical styling inspiration';
+			: 'for a fashion user who wants practical styling inspiration';
 
 	if (visualIntent !== 'outfit') {
 		const visualBriefs: Record<Exclude<VisualIntent, 'outfit'>, string> = {
@@ -125,12 +128,24 @@ ${
 }`;
 	}
 
-	return `Create one polished modest-fashion outfit inspiration image ${audience}.
+	return `Create one contemporary, thoughtfully styled fashion editorial outfit board ${audience}.
+
+Fashion direction:
+- Include a hijab or any other head covering only when explicitly requested in the original user prompt below. Otherwise omit all head coverings, including headscarves, turbans, veils, hats, and caps, even if the reference image or CLAi-generated brief includes them. A scarf explicitly requested for the neck must remain a neck accessory.
+- Do not infer head coverings from modesty, coverage, location, culture, or religion. A negative request such as "no hijab" is not permission to include one.
+- Translate the recommended look into specific, desirable garments with crisp construction, intentional proportions, and considered styling.
+- Preserve the user's requested coverage and modesty through deliberate cuts and layering. Coverage does not require shapeless garments, extra bulk, or unnecessary layers.
+- Balance volume intentionally: a relaxed or oversized piece can work with a cleaner, structured counterpart. Preserve deliberately oversized looks when requested.
+- Make fabric texture, drape, tailoring, hems, collars, and garment shape clear. Avoid limp, rumpled presentation and indistinct garment silhouettes.
+- Use a considered color palette, purposeful contrast, and footwear and accessories that complete the advised look. Do not default every outfit to beige basics or add generic items just to fill space.
+- Follow the user's stated style, budget, occasion, comfort, and fashion sense. Practical can be well-cut and contemporary; Luxury does not require logos or excessive embellishment; Chic does not require tight or revealing clothes.
+- If recreating an uploaded outfit, preserve its distinctive silhouettes, colors, patterns, and styling details rather than replacing it with generic conservative pieces.
+- Keep the look wearable and specific to the advice. Do not add trends, heels, jewelry, or formal tailoring when they contradict the request.
 
 Output style:
 - Show only the recommended clothing, footwear, bags, jewelry, and accessories.
 - Every visible object must be a wearable fashion item or wearable accessory.
-- Use a polished flat-lay, product-board, capsule wardrobe, or editorial wardrobe layout.
+- Use a carefully composed editorial flat-lay with natural garment volume, clear spacing, and realistic fabric texture.
 - Arrange the items clearly so the user can understand the recommended wear without needing a model.
 - Show complete outfit components: at least one main garment for the upper body and one lower-body garment or full-body garment, plus relevant footwear or accessories when mentioned.
 - Do not show any person, model, mannequin, face, body, hand, skin, or partial human figure.
@@ -145,10 +160,13 @@ Output style:
 - Keep it compact, realistic, tasteful, and easy to understand.
 - Do not add readable text, logos, captions, UI, watermarks, or shopping prices.
 - Optimize for confidence, practicality, repeat wear, and sustainability.
-- Image should be small enough for a web chat response, square aspect ratio, not overly detailed.
+- Use a square composition readable in a web chat, with enough detail to appreciate fabric quality and garment construction.
 
-User request:
-${prompt || 'Create a modest fashion look inspiration image.'}
+Original user prompt (the only source of permission to include a head covering):
+${userPrompt || 'No explicit head-covering request was provided. Omit head coverings.'}
+
+Visual brief:
+${prompt || 'Create a fashion look inspiration image.'}
 
 CLAi styling advice to visualize:
 ${advice}
@@ -248,6 +266,7 @@ export async function POST(request: Request) {
 				text: buildLookPrompt({
 					context,
 					prompt,
+					userPrompt: body.userPrompt?.trim() ?? '',
 					advice,
 					hasReferenceImage: hasImage,
 					visualIntent,

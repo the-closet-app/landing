@@ -994,6 +994,7 @@ export function Ask({ variant = 'dark' }: AskProps) {
 									}
 								: undefined,
 							prompt: data.visualPrompt ?? prompt,
+							userPrompt: prompt,
 							visualIntent,
 						}),
 					});
@@ -1124,6 +1125,7 @@ export function Ask({ variant = 'dark' }: AskProps) {
 						assistantMessage.generatedVisualPrompt ??
 						userMessage?.content,
 					visualIntent,
+					userPrompt: userMessage?.content ?? '',
 				}),
 			});
 			const data = (await response.json()) as {
